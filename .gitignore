@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.data/
+.taste-skill/inspect/
+.muse/
+.muse-project-*/versions/
+.muse-project-*/inputs/
+.muse-project-*/outputs/

@@ -1,0 +1,7 @@
+{
+  "actor": "authorized project member / delegated CI Agent",
+  "dataDirectory": "./.data/reviews",
+  "repositories": [
+    {"id": "example", "title": "Operator-selected repository", "root": "/operator/selected/repository"}
+  ]
+}

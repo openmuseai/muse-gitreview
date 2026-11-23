@@ -1,0 +1,39 @@
+{
+  "version": "0.1.0",
+  "managedProjectId": "repository-review-plugin",
+  "versionProjectId": "ad060c4ff9dbd5baa78a971e0c5345ee",
+  "children": [
+    {
+      "key": "capabilities",
+      "title": "CAP-01 · Host 与插件能力复用",
+      "scope": "确认 Host 内容寻址版本、统一/并排 Diff、已有语言高亮和公开插件合同；不复制文件版本库，不猜测 Git tool 名称。",
+      "cases": "Host 实现与公开合同分列；真实能力发现；权限/会话撤回；固定版本引用。",
+      "id": "30417707c53d623583495431a89e23d6"
+    },
+    {
+      "key": "highlighted-diff",
+      "title": "VIEW-01 · 高亮与洁净 Diff 审阅",
+      "scope": "独立通用视图，语法高亮、增删改、行内变化、统一/并排、文件树、统计、上下文与移动阅读。",
+      "cases": "TS/JSON/Dart 等高亮；行号/修改统计；Unicode/空文件/无换行；二进制/截断提示；源码 HTML 不执行。",
+      "id": "59a9a60d4b78a680cc87d2d0f108ef0c"
+    },
+    {
+      "key": "source-review",
+      "title": "REVIEW-01 · 工作区、分支、提交与 MR 来源",
+      "scope": "复用实际 Host/Provider 能力提供指定仓库的工作区、分支、提交与 MR；Muse-CI 是调用方之一。仅已协商能力启用；不将查看当批准。",
+      "cases": "同一公开合同被 CI 和独立消费者调用；真实 MR 固定 SHA 与分页；来源权限；比较更新撤销旧已阅。",
+      "id": "d38f70c0ab7775ac20327a32fd35db2a"
+    },
+    {
+      "key": "acceptance",
+      "title": "ACCEPT-01 · Desktop 与折叠屏实测归档",
+      "scope": "独立 MCP 合同客户端、包摘要、Desktop/当前连接 Android PKM110 普通 App 国内公网路径，验收真正高亮增删改。",
+      "cases": "应用 Tab 安装与打开；展开/外屏；真实仓库 Diff；已阅/意见归属；SmartDoc 用例/报告/MR 归档。",
+      "id": "528d5a77af2a336963d852ef91c4ad8e"
+    }
+  ],
+  "implementationReady": false,
+  "formalRelease": false,
+  "previousDefinitionVersionId": "db79ac06648f856245bb1d982bb92ebc",
+  "engineeringRoot": "Muse-Repository-Review"
+}

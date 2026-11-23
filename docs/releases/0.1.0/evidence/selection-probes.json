@@ -1,0 +1,62 @@
+{
+  "at": "2026-11-23T10:25:35.413Z",
+  "sources": {
+    "host": {
+      "file": "Muse-Client/app/openmuse_host/lib/src/host/workbench_shell.dart",
+      "sha256": "8faecdd65c38441c65e341d2e668e285724054960499dcceb866c648d919264a"
+    },
+    "versionStore": {
+      "file": "Muse-Client/app/openmuse_host/lib/src/host/workspace_controller.dart",
+      "sha256": "1b3079c57270bee3dad72c8a81cb35b65ce6c88b2e555003c9bac1ec078f4c0e"
+    },
+    "dshDesktop": {
+      "commit": "bbc7494aa9ed1cda0b89888264d7ee74a26ec50e",
+      "lockedPrimitivesVersion": "0.2.2-rc.1",
+      "registry": "https://registry.npmjs.org/@deepseek-ai/dsh-client-ui-primitives/-/dsh-client-ui-primitives-0.2.2-rc.1.tgz",
+      "registryIntegrityMatches": true
+    },
+    "harnessCheckout": {
+      "version": "0.1.5-rc.2",
+      "usedAsCurrentDesktopBaseline": false
+    }
+  },
+  "probes": {
+    "hostActualSource": [
+      {
+        "identicalLines": 3,
+        "added": 0,
+        "deleted": 0,
+        "equal": 3
+      },
+      {
+        "identicalLines": 2001,
+        "added": 2001,
+        "deleted": 2001,
+        "equal": 0
+      }
+    ],
+    "dshLockedActualFunctions": [
+      {
+        "identicalLines": 3,
+        "added": 0,
+        "removed": 0
+      },
+      {
+        "identicalLines": 2001,
+        "added": 0,
+        "removed": 0
+      },
+      {
+        "fullyChangedLines": 300,
+        "fallbackReplacement": true,
+        "added": 300,
+        "removed": 300
+      }
+    ]
+  },
+  "method": "Execute extracted unchanged pure functions from current Host source and the exact locked npm artifact; no Host/App patch, no broad performance claim.",
+  "limitations": [
+    "This is capability and algorithm selection evidence, not a new plugin UI or device acceptance.",
+    "The current DiffBlock displays row.text without syntax token rendering; shared CodeBlock/useCodeHighlighter is a distinct capability."
+  ]
+}
