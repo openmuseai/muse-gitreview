@@ -1,0 +1,108 @@
+[
+  {
+    "id": "493e91f0-d4f8-4c9e-b3d1-08d9edfd5a0e",
+    "digest": "002e96a24e3c4416099037745c981fc3eb39f9cecf89af441f556a941672fddc",
+    "title": "验收仓库 · 代码与产品稿 · workspace",
+    "source": {
+      "kind": "workspace",
+      "provider": "git",
+      "repository": "acceptance",
+      "baseRef": "ffca876cdb3ba97c3950ed1a4742e35ee9779182",
+      "headRef": "ffca876cdb3ba97c3950ed1a4742e35ee9779182",
+      "headSha": "ffca876cdb3ba97c3950ed1a4742e35ee9779182"
+    },
+    "createdAt": "2026-11-23T10:58:05.509Z",
+    "fileCount": 2,
+    "incomplete": false,
+    "viewed": [],
+    "noteCount": 0,
+    "decision": "pending",
+    "actor": "国内账号项目成员 / CI Agent 明确委托",
+    "platformApproval": false
+  },
+  {
+    "id": "9ec136ad-ebe6-4ff1-aa17-c2eb13972a34",
+    "digest": "ccbaa4d2ff5160fd2c507929e479e16e5e33c5607e3b8d6c40c542ab5915a4ad",
+    "title": "验收仓库 · 代码与产品稿 · staged",
+    "source": {
+      "kind": "staged",
+      "provider": "git",
+      "repository": "acceptance",
+      "baseRef": "ffca876cdb3ba97c3950ed1a4742e35ee9779182",
+      "headRef": "ffca876cdb3ba97c3950ed1a4742e35ee9779182",
+      "headSha": "ffca876cdb3ba97c3950ed1a4742e35ee9779182"
+    },
+    "createdAt": "2026-11-23T10:58:05.561Z",
+    "fileCount": 1,
+    "incomplete": false,
+    "viewed": [],
+    "noteCount": 0,
+    "decision": "pending",
+    "actor": "国内账号项目成员 / CI Agent 明确委托",
+    "platformApproval": false
+  },
+  {
+    "id": "b8fd1e66-3266-45e3-af46-1d3114faa3e7",
+    "digest": "1af0864ced64ee8296f197fc98198bf4153f804f0104284b487e851d0bd50f28",
+    "title": "验收仓库 · 代码与产品稿 · branch",
+    "source": {
+      "kind": "branch",
+      "provider": "git",
+      "repository": "acceptance",
+      "baseRef": "c06d7d25ac0b9c4eac57b146dfb96ed9eef66a53",
+      "headRef": "ffca876cdb3ba97c3950ed1a4742e35ee9779182",
+      "headSha": "ffca876cdb3ba97c3950ed1a4742e35ee9779182"
+    },
+    "createdAt": "2026-11-23T10:58:05.646Z",
+    "fileCount": 3,
+    "incomplete": false,
+    "viewed": [],
+    "noteCount": 0,
+    "decision": "pending",
+    "actor": "国内账号项目成员 / CI Agent 明确委托",
+    "platformApproval": false
+  },
+  {
+    "id": "403ed5be-0717-4e11-b411-d82a992bc14d",
+    "digest": "1825a3400577224835bacb797cc57ac503a1f4dc1f4a665d58b5f5bb5cdb7e47",
+    "title": "验收仓库 · 代码与产品稿 · commit",
+    "source": {
+      "kind": "commit",
+      "provider": "git",
+      "repository": "acceptance",
+      "baseRef": "c06d7d25ac0b9c4eac57b146dfb96ed9eef66a53",
+      "headRef": "ffca876cdb3ba97c3950ed1a4742e35ee9779182",
+      "headSha": "ffca876cdb3ba97c3950ed1a4742e35ee9779182"
+    },
+    "createdAt": "2026-11-23T10:58:05.723Z",
+    "fileCount": 3,
+    "incomplete": false,
+    "viewed": [],
+    "noteCount": 0,
+    "decision": "pending",
+    "actor": "国内账号项目成员 / CI Agent 明确委托",
+    "platformApproval": false
+  },
+  {
+    "id": "665d2398-208b-4b4b-a2cf-88a57cf26f7d",
+    "digest": "4f670322caa3b2a8f696f84e3750756a716d93496c46ff8f30bad7200deb92df",
+    "title": "Muse-CI · 真实迭代 · MR #3: Muse-CI 0.6: convention based project, version and requirement roots",
+    "source": {
+      "kind": "mr",
+      "provider": "github",
+      "repository": "muse-ci",
+      "baseRef": "bc36ac3caaf497d9d204067ebf4dac28974a2aa0",
+      "headRef": "f156d540d1273000d901d73e387cc44d66069c42",
+      "headSha": "f156d540d1273000d901d73e387cc44d66069c42",
+      "number": 3
+    },
+    "createdAt": "2026-11-23T10:58:08.061Z",
+    "fileCount": 65,
+    "incomplete": true,
+    "viewed": [],
+    "noteCount": 0,
+    "decision": "pending",
+    "actor": "国内账号项目成员 / CI Agent 明确委托",
+    "platformApproval": false
+  }
+]

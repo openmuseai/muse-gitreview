@@ -1,0 +1,18 @@
+{
+  "resource": "review-acceptance/product.md",
+  "events": 3,
+  "byteLengths": [
+    59,
+    103,
+    59
+  ],
+  "sha256": [
+    "397b8d1f46392a7aec5caf361ec7e1e068c82b74ddbaa92917163fed66c19bfe",
+    "472e81f27895c11387b840728b8e27b8a12f46c779be44fc26ff867fa1978665",
+    "397b8d1f46392a7aec5caf361ec7e1e068c82b74ddbaa92917163fed66c19bfe"
+  ],
+  "distinctBlobs": 2,
+  "currentSha256": "397b8d1f46392a7aec5caf361ec7e1e068c82b74ddbaa92917163fed66c19bfe",
+  "restoredToInitial": true,
+  "backupPreserved": true
+}

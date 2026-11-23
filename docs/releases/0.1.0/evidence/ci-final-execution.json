@@ -1,0 +1,606 @@
+[
+  {
+    "projectId": "30417707c53d623583495431a89e23d6",
+    "runId": "2ab24c31-ef8b-4858-858c-d0172d040a7f",
+    "status": "succeeded",
+    "rows": [
+      {
+        "id": "feature-prd",
+        "status": "succeeded",
+        "provider": "smartdoc-publish",
+        "inputDigest": "6f6cc7be77b16cb2f65ecbb31ac65cc57e8d0555a5c2c54f10bfb34bd9de584e",
+        "sourceDigest": "3485886c98f4d855fec3c7db8032086aee12c128e4c5ba395f57f5a8964f33d0",
+        "artifacts": [
+          {
+            "kind": "application/vnd.openmuse.smart-document+json",
+            "name": "细化范围、规则与每一项验收条件.sydoc",
+            "sha256": "aaa01932989203f1129a438d1f6999fc42b2d9c0d52de3f24881c8ddcbd40965",
+            "producer": "smartdoc.snapshot",
+            "createdAt": "2026-11-23T12:13:46.434Z",
+            "inputDigest": "6f6cc7be77b16cb2f65ecbb31ac65cc57e8d0555a5c2c54f10bfb34bd9de584e",
+            "byteLength": 15472,
+            "contentAvailable": true
+          }
+        ]
+      },
+      {
+        "id": "feature-ui",
+        "status": "succeeded",
+        "provider": "smartdoc-publish",
+        "inputDigest": "86eafcddfe1189fc652f44090f8196e3fe53c4cd920c6f7735599b4d051297a5",
+        "sourceDigest": "3485886c98f4d855fec3c7db8032086aee12c128e4c5ba395f57f5a8964f33d0",
+        "artifacts": [
+          {
+            "kind": "application/vnd.openmuse.smart-document+json",
+            "name": "界面、交互状态与多端设计.sydoc",
+            "sha256": "b0fe9d1e6cc0726392a067c41d75720ba6b2f9a192045907099cb50a5e5967bd",
+            "producer": "smartdoc.snapshot",
+            "createdAt": "2026-11-23T12:13:46.950Z",
+            "inputDigest": "86eafcddfe1189fc652f44090f8196e3fe53c4cd920c6f7735599b4d051297a5",
+            "byteLength": 13192,
+            "contentAvailable": true
+          }
+        ]
+      },
+      {
+        "id": "feature-solution",
+        "status": "succeeded",
+        "provider": "smartdoc-publish",
+        "inputDigest": "a9497f4b3858adac4fc15618ec00a0821486a021188336990af50ea357481c94",
+        "sourceDigest": "3485886c98f4d855fec3c7db8032086aee12c128e4c5ba395f57f5a8964f33d0",
+        "artifacts": [
+          {
+            "kind": "application/vnd.openmuse.smart-document+json",
+            "name": "架构、协议、数据与实施方案.sydoc",
+            "sha256": "ef8f722f5a87f840a50b76b99b716f9ed8c9cdb8d370d4ef96e730606563cf15",
+            "producer": "smartdoc.snapshot",
+            "createdAt": "2026-11-23T12:13:47.439Z",
+            "inputDigest": "a9497f4b3858adac4fc15618ec00a0821486a021188336990af50ea357481c94",
+            "byteLength": 15492,
+            "contentAvailable": true
+          }
+        ]
+      },
+      {
+        "id": "implementation",
+        "status": "succeeded",
+        "provider": "project.check",
+        "inputDigest": "c6ca7ac83280689860752b0ff51f8d0756d0c1acafeb218cfd4a2d939ac6f772",
+        "sourceDigest": "3485886c98f4d855fec3c7db8032086aee12c128e4c5ba395f57f5a8964f33d0",
+        "artifacts": [
+          {
+            "kind": "application/json",
+            "name": "project-check-report.json",
+            "sha256": "7d7a18c53d4e676b0561294150d3f2321247e0dfa3f98abb47e3058381b7a514",
+            "producer": "project.check",
+            "createdAt": "2026-11-23T12:13:49.009Z",
+            "inputDigest": "c6ca7ac83280689860752b0ff51f8d0756d0c1acafeb218cfd4a2d939ac6f772",
+            "byteLength": 390,
+            "contentAvailable": true
+          },
+          {
+            "kind": "application/vnd.openmuse.smart-document+json",
+            "name": "实现功能与研发验证.sydoc",
+            "sha256": "c2610ae2a0bfe00a0b0fce478d8b8e7ecd1d67113ed0cb2764faea50af789133",
+            "producer": "smartdoc.snapshot",
+            "createdAt": "2026-11-23T12:13:49.009Z",
+            "inputDigest": "c6ca7ac83280689860752b0ff51f8d0756d0c1acafeb218cfd4a2d939ac6f772",
+            "byteLength": 18532,
+            "contentAvailable": true
+          }
+        ]
+      },
+      {
+        "id": "feature-cases",
+        "status": "succeeded",
+        "provider": "smartdoc-publish",
+        "inputDigest": "85e88d34f0bde1744ac4bf5b56720381d6487618321b35c65300ffa8bc59a2e1",
+        "sourceDigest": "3485886c98f4d855fec3c7db8032086aee12c128e4c5ba395f57f5a8964f33d0",
+        "artifacts": [
+          {
+            "kind": "application/vnd.openmuse.smart-document+json",
+            "name": "功能测试用例与覆盖矩阵.sydoc",
+            "sha256": "77ee6892b56017843ff3a1e4b7f74f03139cc17a76df99522b35591549581b2e",
+            "producer": "smartdoc.snapshot",
+            "createdAt": "2026-11-23T12:13:49.676Z",
+            "inputDigest": "85e88d34f0bde1744ac4bf5b56720381d6487618321b35c65300ffa8bc59a2e1",
+            "byteLength": 11548,
+            "contentAvailable": true
+          }
+        ]
+      },
+      {
+        "id": "feature-report",
+        "status": "succeeded",
+        "provider": "project.check",
+        "inputDigest": "6f1f909ddd05f22550acf5d6677718cbc4f46378986bc4527926c8e4c13f5b4a",
+        "sourceDigest": "3485886c98f4d855fec3c7db8032086aee12c128e4c5ba395f57f5a8964f33d0",
+        "artifacts": [
+          {
+            "kind": "application/json",
+            "name": "project-check-report.json",
+            "sha256": "d481df1cdc4ffad41a60a49f12473d671ddc27f08f9a1cbd7df7c69ebb6c758e",
+            "producer": "project.check",
+            "createdAt": "2026-11-23T12:13:52.872Z",
+            "inputDigest": "6f1f909ddd05f22550acf5d6677718cbc4f46378986bc4527926c8e4c13f5b4a",
+            "byteLength": 1565,
+            "contentAvailable": true
+          },
+          {
+            "kind": "application/vnd.openmuse.smart-document+json",
+            "name": "功能测试用例与覆盖矩阵.sydoc",
+            "sha256": "77ee6892b56017843ff3a1e4b7f74f03139cc17a76df99522b35591549581b2e",
+            "producer": "smartdoc.snapshot",
+            "createdAt": "2026-11-23T12:13:52.872Z",
+            "inputDigest": "6f1f909ddd05f22550acf5d6677718cbc4f46378986bc4527926c8e4c13f5b4a",
+            "byteLength": 11548,
+            "contentAvailable": true
+          },
+          {
+            "kind": "application/vnd.openmuse.smart-document+json",
+            "name": "执行测试并交付测试报告.sydoc",
+            "sha256": "a9d74d3e24c0ed633438d0479f52af1c89bd5ddfb4af05614c54e99762af2518",
+            "producer": "smartdoc.snapshot",
+            "createdAt": "2026-11-23T12:13:52.872Z",
+            "inputDigest": "6f1f909ddd05f22550acf5d6677718cbc4f46378986bc4527926c8e4c13f5b4a",
+            "byteLength": 27756,
+            "contentAvailable": true
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "projectId": "59a9a60d4b78a680cc87d2d0f108ef0c",
+    "runId": "46573256-7870-4c08-bf2f-fdf96db3a267",
+    "status": "succeeded",
+    "rows": [
+      {
+        "id": "feature-prd",
+        "status": "succeeded",
+        "provider": "smartdoc-publish",
+        "inputDigest": "aa8130b9145fa3a8e7df1e8be300f33215690cfd7cea0bcbd40bcfa69cf34583",
+        "sourceDigest": "3485886c98f4d855fec3c7db8032086aee12c128e4c5ba395f57f5a8964f33d0",
+        "artifacts": [
+          {
+            "kind": "application/vnd.openmuse.smart-document+json",
+            "name": "细化范围、规则与每一项验收条件.sydoc",
+            "sha256": "e4bafa85a3fd9c13ff1dec624e350ee3d1f9a9c4dce92e65cc79a053b789d09d",
+            "producer": "smartdoc.snapshot",
+            "createdAt": "2026-11-23T12:13:55.254Z",
+            "inputDigest": "aa8130b9145fa3a8e7df1e8be300f33215690cfd7cea0bcbd40bcfa69cf34583",
+            "byteLength": 16316,
+            "contentAvailable": true
+          }
+        ]
+      },
+      {
+        "id": "feature-ui",
+        "status": "succeeded",
+        "provider": "smartdoc-publish",
+        "inputDigest": "40c0a32a903c2641b86d8c7b71b12d16083f24f52caa9e9015978e25e49e025c",
+        "sourceDigest": "3485886c98f4d855fec3c7db8032086aee12c128e4c5ba395f57f5a8964f33d0",
+        "artifacts": [
+          {
+            "kind": "application/vnd.openmuse.smart-document+json",
+            "name": "界面、交互状态与多端设计.sydoc",
+            "sha256": "c971165a3c28cfdaa1757033504fad9195c3c8ae61bc418551dca0fbbcd04d78",
+            "producer": "smartdoc.snapshot",
+            "createdAt": "2026-11-23T12:13:55.793Z",
+            "inputDigest": "40c0a32a903c2641b86d8c7b71b12d16083f24f52caa9e9015978e25e49e025c",
+            "byteLength": 14036,
+            "contentAvailable": true
+          }
+        ]
+      },
+      {
+        "id": "feature-solution",
+        "status": "succeeded",
+        "provider": "smartdoc-publish",
+        "inputDigest": "fc0e5fb4d1173f97dd3f8f7bfcc452670870fe51931f954e94d924ac098acada",
+        "sourceDigest": "3485886c98f4d855fec3c7db8032086aee12c128e4c5ba395f57f5a8964f33d0",
+        "artifacts": [
+          {
+            "kind": "application/vnd.openmuse.smart-document+json",
+            "name": "架构、协议、数据与实施方案.sydoc",
+            "sha256": "0b60d75667f39662a248587d144ac9e1b297bf7988fa91443a3624149a3d8801",
+            "producer": "smartdoc.snapshot",
+            "createdAt": "2026-11-23T12:13:56.379Z",
+            "inputDigest": "fc0e5fb4d1173f97dd3f8f7bfcc452670870fe51931f954e94d924ac098acada",
+            "byteLength": 16312,
+            "contentAvailable": true
+          }
+        ]
+      },
+      {
+        "id": "implementation",
+        "status": "succeeded",
+        "provider": "project.check",
+        "inputDigest": "eedf1f72c09674e1430439d6cfeadda4998d584f4e1b55d18e4b39597adcddbe",
+        "sourceDigest": "3485886c98f4d855fec3c7db8032086aee12c128e4c5ba395f57f5a8964f33d0",
+        "artifacts": [
+          {
+            "kind": "application/json",
+            "name": "project-check-report.json",
+            "sha256": "8eb04bb313733b22a72ff3c4ccaca6f8df9d2fa1f5f6ed47de6c85d812409c1a",
+            "producer": "project.check",
+            "createdAt": "2026-11-23T12:13:58.170Z",
+            "inputDigest": "eedf1f72c09674e1430439d6cfeadda4998d584f4e1b55d18e4b39597adcddbe",
+            "byteLength": 390,
+            "contentAvailable": true
+          },
+          {
+            "kind": "application/vnd.openmuse.smart-document+json",
+            "name": "实现功能与研发验证.sydoc",
+            "sha256": "049b1dc5c9747ce09353f3153971884514964904d9dace7d61789e4c7c882a24",
+            "producer": "smartdoc.snapshot",
+            "createdAt": "2026-11-23T12:13:58.170Z",
+            "inputDigest": "eedf1f72c09674e1430439d6cfeadda4998d584f4e1b55d18e4b39597adcddbe",
+            "byteLength": 19400,
+            "contentAvailable": true
+          }
+        ]
+      },
+      {
+        "id": "feature-cases",
+        "status": "succeeded",
+        "provider": "smartdoc-publish",
+        "inputDigest": "3d7dedd9c53aa37b714561b53ffb247c3222d560b19690dfc598b3e0abc66893",
+        "sourceDigest": "3485886c98f4d855fec3c7db8032086aee12c128e4c5ba395f57f5a8964f33d0",
+        "artifacts": [
+          {
+            "kind": "application/vnd.openmuse.smart-document+json",
+            "name": "功能测试用例与覆盖矩阵.sydoc",
+            "sha256": "db5fdbe623b2a479b5a64ab279a648de0c84d23d479a8fb8b795ee2d2fdf4ff2",
+            "producer": "smartdoc.snapshot",
+            "createdAt": "2026-11-23T12:14:00.780Z",
+            "inputDigest": "3d7dedd9c53aa37b714561b53ffb247c3222d560b19690dfc598b3e0abc66893",
+            "byteLength": 12392,
+            "contentAvailable": true
+          }
+        ]
+      },
+      {
+        "id": "feature-report",
+        "status": "succeeded",
+        "provider": "project.check",
+        "inputDigest": "830a492c5654a1ad285a49110246e9de87dd6e8eee829e58014eb19700bfb908",
+        "sourceDigest": "3485886c98f4d855fec3c7db8032086aee12c128e4c5ba395f57f5a8964f33d0",
+        "artifacts": [
+          {
+            "kind": "application/json",
+            "name": "project-check-report.json",
+            "sha256": "86a9ca9d72ed5a97942968ab7ab52452eb68ec658efcb8c457d8c5d81645f333",
+            "producer": "project.check",
+            "createdAt": "2026-11-23T12:14:08.479Z",
+            "inputDigest": "830a492c5654a1ad285a49110246e9de87dd6e8eee829e58014eb19700bfb908",
+            "byteLength": 1560,
+            "contentAvailable": true
+          },
+          {
+            "kind": "application/vnd.openmuse.smart-document+json",
+            "name": "功能测试用例与覆盖矩阵.sydoc",
+            "sha256": "db5fdbe623b2a479b5a64ab279a648de0c84d23d479a8fb8b795ee2d2fdf4ff2",
+            "producer": "smartdoc.snapshot",
+            "createdAt": "2026-11-23T12:14:08.479Z",
+            "inputDigest": "830a492c5654a1ad285a49110246e9de87dd6e8eee829e58014eb19700bfb908",
+            "byteLength": 12392,
+            "contentAvailable": true
+          },
+          {
+            "kind": "application/vnd.openmuse.smart-document+json",
+            "name": "执行测试并交付测试报告.sydoc",
+            "sha256": "9e2ad9ff588d3c28033f2792b0ef34b63ced779e7c4e819d72462620005d2ccd",
+            "producer": "smartdoc.snapshot",
+            "createdAt": "2026-11-23T12:14:08.479Z",
+            "inputDigest": "830a492c5654a1ad285a49110246e9de87dd6e8eee829e58014eb19700bfb908",
+            "byteLength": 28748,
+            "contentAvailable": true
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "projectId": "d38f70c0ab7775ac20327a32fd35db2a",
+    "runId": "969d0c02-5aa9-4209-8255-3b95fb990315",
+    "status": "succeeded",
+    "rows": [
+      {
+        "id": "feature-prd",
+        "status": "succeeded",
+        "provider": "smartdoc-publish",
+        "inputDigest": "5c4d93a58e6580b8d462ea77c6d7c1e8c5b8d690d7a86afb4bd0d2561f919119",
+        "sourceDigest": "3485886c98f4d855fec3c7db8032086aee12c128e4c5ba395f57f5a8964f33d0",
+        "artifacts": [
+          {
+            "kind": "application/vnd.openmuse.smart-document+json",
+            "name": "细化范围、规则与每一项验收条件.sydoc",
+            "sha256": "c2dd6977a94f8fe1585a85920545fd27998cdfc9a4b6856f085a1c38ac27f578",
+            "producer": "smartdoc.snapshot",
+            "createdAt": "2026-11-23T12:14:11.986Z",
+            "inputDigest": "5c4d93a58e6580b8d462ea77c6d7c1e8c5b8d690d7a86afb4bd0d2561f919119",
+            "byteLength": 16400,
+            "contentAvailable": true
+          }
+        ]
+      },
+      {
+        "id": "feature-ui",
+        "status": "succeeded",
+        "provider": "smartdoc-publish",
+        "inputDigest": "c3bb5ddc9c68e46e38a3c60ef6491d278b4220a856fccc314ff8ae57cf8d4c71",
+        "sourceDigest": "3485886c98f4d855fec3c7db8032086aee12c128e4c5ba395f57f5a8964f33d0",
+        "artifacts": [
+          {
+            "kind": "application/vnd.openmuse.smart-document+json",
+            "name": "界面、交互状态与多端设计.sydoc",
+            "sha256": "de4984da6a526424524a7d953284d2dbe74327be1825c75116b4e27828fbb6b5",
+            "producer": "smartdoc.snapshot",
+            "createdAt": "2026-11-23T12:14:12.903Z",
+            "inputDigest": "c3bb5ddc9c68e46e38a3c60ef6491d278b4220a856fccc314ff8ae57cf8d4c71",
+            "byteLength": 14116,
+            "contentAvailable": true
+          }
+        ]
+      },
+      {
+        "id": "feature-solution",
+        "status": "succeeded",
+        "provider": "smartdoc-publish",
+        "inputDigest": "0e2ae1a3d3da27ae78aac7307b3f1692a63a9beb2b57d3b31bad8e49e5b1ac5c",
+        "sourceDigest": "3485886c98f4d855fec3c7db8032086aee12c128e4c5ba395f57f5a8964f33d0",
+        "artifacts": [
+          {
+            "kind": "application/vnd.openmuse.smart-document+json",
+            "name": "架构、协议、数据与实施方案.sydoc",
+            "sha256": "3ca454e0eb6570a7b2ae0045bd14cdfed5fc1380d54cd4b4c8af2c350eb92f31",
+            "producer": "smartdoc.snapshot",
+            "createdAt": "2026-11-23T12:14:13.516Z",
+            "inputDigest": "0e2ae1a3d3da27ae78aac7307b3f1692a63a9beb2b57d3b31bad8e49e5b1ac5c",
+            "byteLength": 16416,
+            "contentAvailable": true
+          }
+        ]
+      },
+      {
+        "id": "implementation",
+        "status": "succeeded",
+        "provider": "project.check",
+        "inputDigest": "4315084cb43fd70fc31e0d9743e0ee6f67476ee143b781ba2b393b01a542596c",
+        "sourceDigest": "3485886c98f4d855fec3c7db8032086aee12c128e4c5ba395f57f5a8964f33d0",
+        "artifacts": [
+          {
+            "kind": "application/json",
+            "name": "project-check-report.json",
+            "sha256": "7500d34f834cd31e589c15f9014dd388329ec58f1431c38700cfa32029bf5e5c",
+            "producer": "project.check",
+            "createdAt": "2026-11-23T12:14:14.941Z",
+            "inputDigest": "4315084cb43fd70fc31e0d9743e0ee6f67476ee143b781ba2b393b01a542596c",
+            "byteLength": 390,
+            "contentAvailable": true
+          },
+          {
+            "kind": "application/vnd.openmuse.smart-document+json",
+            "name": "实现功能与研发验证.sydoc",
+            "sha256": "5481b617f8db4dd520cac6375a851052d4bd41070e15af72108ecdf26eb69554",
+            "producer": "smartdoc.snapshot",
+            "createdAt": "2026-11-23T12:14:14.941Z",
+            "inputDigest": "4315084cb43fd70fc31e0d9743e0ee6f67476ee143b781ba2b393b01a542596c",
+            "byteLength": 19480,
+            "contentAvailable": true
+          }
+        ]
+      },
+      {
+        "id": "feature-cases",
+        "status": "succeeded",
+        "provider": "smartdoc-publish",
+        "inputDigest": "5fb5a7a64c05e4b9a96347adb17f7c19222ce26f42850eb2da09b28e55451b2c",
+        "sourceDigest": "3485886c98f4d855fec3c7db8032086aee12c128e4c5ba395f57f5a8964f33d0",
+        "artifacts": [
+          {
+            "kind": "application/vnd.openmuse.smart-document+json",
+            "name": "功能测试用例与覆盖矩阵.sydoc",
+            "sha256": "e2e9e5abc3b2364ea389f7db16d8697a43c766459b266d4572221c274bec9473",
+            "producer": "smartdoc.snapshot",
+            "createdAt": "2026-11-23T12:14:15.500Z",
+            "inputDigest": "5fb5a7a64c05e4b9a96347adb17f7c19222ce26f42850eb2da09b28e55451b2c",
+            "byteLength": 12472,
+            "contentAvailable": true
+          }
+        ]
+      },
+      {
+        "id": "feature-report",
+        "status": "succeeded",
+        "provider": "project.check",
+        "inputDigest": "a128eeb39655d9c184c184024e3c7e14c06f738227d3aff3a4c5ee658cf12814",
+        "sourceDigest": "3485886c98f4d855fec3c7db8032086aee12c128e4c5ba395f57f5a8964f33d0",
+        "artifacts": [
+          {
+            "kind": "application/json",
+            "name": "project-check-report.json",
+            "sha256": "36b9a81337a77372f7dca5db73bd4ea5e9790440187abc69b5400fd3c0fe9dce",
+            "producer": "project.check",
+            "createdAt": "2026-11-23T12:14:20.296Z",
+            "inputDigest": "a128eeb39655d9c184c184024e3c7e14c06f738227d3aff3a4c5ee658cf12814",
+            "byteLength": 1564,
+            "contentAvailable": true
+          },
+          {
+            "kind": "application/vnd.openmuse.smart-document+json",
+            "name": "功能测试用例与覆盖矩阵.sydoc",
+            "sha256": "e2e9e5abc3b2364ea389f7db16d8697a43c766459b266d4572221c274bec9473",
+            "producer": "smartdoc.snapshot",
+            "createdAt": "2026-11-23T12:14:20.296Z",
+            "inputDigest": "a128eeb39655d9c184c184024e3c7e14c06f738227d3aff3a4c5ee658cf12814",
+            "byteLength": 12472,
+            "contentAvailable": true
+          },
+          {
+            "kind": "application/vnd.openmuse.smart-document+json",
+            "name": "执行测试并交付测试报告.sydoc",
+            "sha256": "358f1cb901457e0c7bd1680d115cfddafa6f671d8cc299999a8890ab09be8100",
+            "producer": "smartdoc.snapshot",
+            "createdAt": "2026-11-23T12:14:20.296Z",
+            "inputDigest": "a128eeb39655d9c184c184024e3c7e14c06f738227d3aff3a4c5ee658cf12814",
+            "byteLength": 28840,
+            "contentAvailable": true
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "projectId": "528d5a77af2a336963d852ef91c4ad8e",
+    "runId": "6ded1388-43a2-4167-bc42-9fd890720023",
+    "status": "succeeded",
+    "rows": [
+      {
+        "id": "feature-prd",
+        "status": "succeeded",
+        "provider": "smartdoc-publish",
+        "inputDigest": "243f4c3a241c06a7e0d4c16f20034eeb0bd9635638d95adbbedc0d897b724487",
+        "sourceDigest": "3485886c98f4d855fec3c7db8032086aee12c128e4c5ba395f57f5a8964f33d0",
+        "artifacts": [
+          {
+            "kind": "application/vnd.openmuse.smart-document+json",
+            "name": "细化范围、规则与每一项验收条件.sydoc",
+            "sha256": "609022fe697f6c3aa1ebf2a00ae6dc21133effb384af19778c643be18b5057ec",
+            "producer": "smartdoc.snapshot",
+            "createdAt": "2026-11-23T12:14:23.357Z",
+            "inputDigest": "243f4c3a241c06a7e0d4c16f20034eeb0bd9635638d95adbbedc0d897b724487",
+            "byteLength": 16336,
+            "contentAvailable": true
+          }
+        ]
+      },
+      {
+        "id": "feature-ui",
+        "status": "succeeded",
+        "provider": "smartdoc-publish",
+        "inputDigest": "bc23aafe13a039643a5305b508bc288be86771c72c191c475749e30d639cd215",
+        "sourceDigest": "3485886c98f4d855fec3c7db8032086aee12c128e4c5ba395f57f5a8964f33d0",
+        "artifacts": [
+          {
+            "kind": "application/vnd.openmuse.smart-document+json",
+            "name": "界面、交互状态与多端设计.sydoc",
+            "sha256": "4db1099887e34bbb276449cfdb023ad3e478a25c7282538ba0114526c8aa6080",
+            "producer": "smartdoc.snapshot",
+            "createdAt": "2026-11-23T12:14:24.013Z",
+            "inputDigest": "bc23aafe13a039643a5305b508bc288be86771c72c191c475749e30d639cd215",
+            "byteLength": 14052,
+            "contentAvailable": true
+          }
+        ]
+      },
+      {
+        "id": "feature-solution",
+        "status": "succeeded",
+        "provider": "smartdoc-publish",
+        "inputDigest": "54751d1a07cca58d98345b0f11e557ede764c8f336af0d3a6d2b4c232ad155e9",
+        "sourceDigest": "3485886c98f4d855fec3c7db8032086aee12c128e4c5ba395f57f5a8964f33d0",
+        "artifacts": [
+          {
+            "kind": "application/vnd.openmuse.smart-document+json",
+            "name": "架构、协议、数据与实施方案.sydoc",
+            "sha256": "bc58fcf4160564972e4efc8f2cd8fa168bdb970661b55c86859fc270ddb2ff41",
+            "producer": "smartdoc.snapshot",
+            "createdAt": "2026-11-23T12:14:24.736Z",
+            "inputDigest": "54751d1a07cca58d98345b0f11e557ede764c8f336af0d3a6d2b4c232ad155e9",
+            "byteLength": 16356,
+            "contentAvailable": true
+          }
+        ]
+      },
+      {
+        "id": "implementation",
+        "status": "succeeded",
+        "provider": "project.check",
+        "inputDigest": "24e4926e84460196d07bad7242c253a6ff28e3d532f341faa2cf61ec3559c825",
+        "sourceDigest": "3485886c98f4d855fec3c7db8032086aee12c128e4c5ba395f57f5a8964f33d0",
+        "artifacts": [
+          {
+            "kind": "application/json",
+            "name": "project-check-report.json",
+            "sha256": "d9596299775783a7b39d6c61a386d0ad4e1ecd8770f8b52b0d042dcc4dd345cb",
+            "producer": "project.check",
+            "createdAt": "2026-11-23T12:14:26.265Z",
+            "inputDigest": "24e4926e84460196d07bad7242c253a6ff28e3d532f341faa2cf61ec3559c825",
+            "byteLength": 390,
+            "contentAvailable": true
+          },
+          {
+            "kind": "application/vnd.openmuse.smart-document+json",
+            "name": "实现功能与研发验证.sydoc",
+            "sha256": "850b06b4320ac469fc8d2a873388a3b729b3b3372b41caafdcfb528017275aa8",
+            "producer": "smartdoc.snapshot",
+            "createdAt": "2026-11-23T12:14:26.265Z",
+            "inputDigest": "24e4926e84460196d07bad7242c253a6ff28e3d532f341faa2cf61ec3559c825",
+            "byteLength": 19420,
+            "contentAvailable": true
+          }
+        ]
+      },
+      {
+        "id": "feature-cases",
+        "status": "succeeded",
+        "provider": "smartdoc-publish",
+        "inputDigest": "f1c2c689d2974e4788c36eab8b219b58196f3671610337e9d6c2782c172ca6f3",
+        "sourceDigest": "3485886c98f4d855fec3c7db8032086aee12c128e4c5ba395f57f5a8964f33d0",
+        "artifacts": [
+          {
+            "kind": "application/vnd.openmuse.smart-document+json",
+            "name": "功能测试用例与覆盖矩阵.sydoc",
+            "sha256": "d9a940347972f51c4dcd7377ad5464dc6ad0426aa45df7069b355ae47b2a8f24",
+            "producer": "smartdoc.snapshot",
+            "createdAt": "2026-11-23T12:14:26.985Z",
+            "inputDigest": "f1c2c689d2974e4788c36eab8b219b58196f3671610337e9d6c2782c172ca6f3",
+            "byteLength": 12412,
+            "contentAvailable": true
+          }
+        ]
+      },
+      {
+        "id": "feature-report",
+        "status": "succeeded",
+        "provider": "project.check",
+        "inputDigest": "682fd83c2a4562a06d949defdbb04299f0877503db33e1aa5fabc628add4d55e",
+        "sourceDigest": "3485886c98f4d855fec3c7db8032086aee12c128e4c5ba395f57f5a8964f33d0",
+        "artifacts": [
+          {
+            "kind": "application/json",
+            "name": "project-check-report.json",
+            "sha256": "0eb14c80f4a41f6415a8fc90b9f0801ee6d378fd00068d8c2d5cf27f3a324c38",
+            "producer": "project.check",
+            "createdAt": "2026-11-23T12:14:30.102Z",
+            "inputDigest": "682fd83c2a4562a06d949defdbb04299f0877503db33e1aa5fabc628add4d55e",
+            "byteLength": 1562,
+            "contentAvailable": true
+          },
+          {
+            "kind": "application/vnd.openmuse.smart-document+json",
+            "name": "功能测试用例与覆盖矩阵.sydoc",
+            "sha256": "d9a940347972f51c4dcd7377ad5464dc6ad0426aa45df7069b355ae47b2a8f24",
+            "producer": "smartdoc.snapshot",
+            "createdAt": "2026-11-23T12:14:30.102Z",
+            "inputDigest": "682fd83c2a4562a06d949defdbb04299f0877503db33e1aa5fabc628add4d55e",
+            "byteLength": 12412,
+            "contentAvailable": true
+          },
+          {
+            "kind": "application/vnd.openmuse.smart-document+json",
+            "name": "执行测试并交付测试报告.sydoc",
+            "sha256": "ad18458e9fc821472524b060d8ccc7699f4c5a1364160c51d14fec0a0a6a822d",
+            "producer": "smartdoc.snapshot",
+            "createdAt": "2026-11-23T12:14:30.102Z",
+            "inputDigest": "682fd83c2a4562a06d949defdbb04299f0877503db33e1aa5fabc628add4d55e",
+            "byteLength": 28780,
+            "contentAvailable": true
+          }
+        ]
+      }
+    ]
+  }
+]

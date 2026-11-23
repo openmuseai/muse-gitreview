@@ -35,5 +35,7 @@
   "implementationReady": false,
   "formalRelease": false,
   "previousDefinitionVersionId": "db79ac06648f856245bb1d982bb92ebc",
-  "engineeringRoot": "Muse-Repository-Review"
+  "engineeringRoot": "Muse-Repository-Review",
+  "automaticChecksExecuted": true,
+  "deviceAcceptanceComplete": false
 }
