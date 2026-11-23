@@ -1,87 +1,657 @@
-import {App} from '@modelcontextprotocol/ext-apps';
-import {buildHunks,pairedRows,type DiffLine} from '../src/diff-model.ts';
-import type {ChangeFile} from '../src/contract.ts';
-import {escape as e,tokenize,lineHtml} from './highlight.ts';
+import { App } from "@modelcontextprotocol/ext-apps";
+import { buildHunks, pairedRows, type DiffLine } from "../src/diff-model.ts";
+import type { ChangeFile } from "../src/contract.ts";
+import { escape as e, tokenize, lineHtml } from "./highlight.ts";
 
-const app=new App({name:'Repository Review',version:'0.1.0'},{});
-const root=document.querySelector<HTMLElement>('#app')!,dialog=document.querySelector<HTMLDialogElement>('#dialog')!;
-let sources:any[]=[],sessions:any[]=[],review:any=null,file:ChangeFile|null=null;
-let repositoryId='',kind='workspace',baseRef='main',headRef='HEAD',mrNumber='3',view='unified',page=0,busy=false,mode='diff';
-let hostResources:any[]=[],hostWritable=false,resourceId='',versions:any[]=[],beforeVersion='',afterVersion='',current:any=null;
-const statusNames:Record<string,string>={added:'A',deleted:'D',modified:'M',renamed:'R',copied:'C',unchanged:'·'};
-const decisionNames:Record<string,string>={pending:'审阅中',changes_requested:'需要修改',accepted:'本地审阅完成'};
-const selectedRepo=()=>sources.find(s=>s.id===repositoryId);
-const uid=()=>crypto.randomUUID();
-async function call(name:string,args:Record<string,unknown>={}):Promise<any>{
-  const r=await app.callServerTool({name,arguments:args},{timeout:60000});
-  if(r.isError)throw Error(r.content.filter(c=>c.type==='text').map((c:any)=>c.text).join('\n'));
-  if(!r.structuredContent)throw Error('服务未返回结构化结果');return r.structuredContent;
+const app = new App({ name: "Repository Review", version: "0.1.0" }, {});
+const root = document.querySelector<HTMLElement>("#app")!,
+  dialog = document.querySelector<HTMLDialogElement>("#dialog")!;
+let sources: any[] = [],
+  sessions: any[] = [],
+  review: any = null,
+  file: ChangeFile | null = null;
+let repositoryId = "",
+  kind = "workspace",
+  baseRef = "main",
+  headRef = "HEAD",
+  mrNumber = "3",
+  view = "unified",
+  page = 0,
+  busy = false,
+  mode = "diff";
+let hostResources: any[] = [],
+  hostWritable = false,
+  resourceId = "",
+  versions: any[] = [],
+  beforeVersion = "",
+  afterVersion = "",
+  current: any = null;
+const statusNames: Record<string, string> = {
+  added: "A",
+  deleted: "D",
+  modified: "M",
+  renamed: "R",
+  copied: "C",
+  unchanged: "·",
+};
+const decisionNames: Record<string, string> = {
+  pending: "审阅中",
+  changes_requested: "需要修改",
+  accepted: "本地审阅完成",
+};
+const selectedRepo = () => sources.find((s) => s.id === repositoryId);
+const uid = () => crypto.randomUUID();
+async function call(
+  name: string,
+  args: Record<string, unknown> = {},
+): Promise<any> {
+  const r = await app.callServerTool(
+    { name, arguments: args },
+    { timeout: 60000 },
+  );
+  if (r.isError)
+    throw Error(
+      r.content
+        .filter((c) => c.type === "text")
+        .map((c: any) => c.text)
+        .join("\n"),
+    );
+  if (!r.structuredContent) throw Error("服务未返回结构化结果");
+  return r.structuredContent;
 }
-const errors:Record<string,string>={REVIEW_NOT_COMPLETE:'请审阅全部文件并解决意见；来源不完整时不能完成审阅。',VERSION_CURRENT_CHANGED:'文件已被其他人修改，请刷新后重新比较。',VERSION_CLOSE_EDITOR_BEFORE_RESTORE:'请先关闭此文件的原生编辑器，再恢复版本，避免未保存内容覆盖恢复结果。',VERSION_RESOURCE_NOT_GRANTED:'该文件没有授权给此插件。',GIT_SOURCE_UNAVAILABLE:'无法读取该 Git 来源，请检查引用与仓库授权。',MR_SOURCE_UNAVAILABLE:'无法读取 MR，请检查账号授权与 MR 编号。',VERSION_FILE_BUDGET_EXCEEDED:'文件超过首版的安全读取上限，请使用原生应用查看。'};
-function toast(message:string,error=false){const t=document.querySelector<HTMLElement>('#toast')!;t.textContent=errors[message]||message;t.className=error?'error':'';t.style.display='block';setTimeout(()=>t.style.display='none',6500);}
-async function action(fn:()=>Promise<void>){if(busy)return;busy=true;root.classList.add('busy');try{await fn();}catch(error){toast(error instanceof Error?error.message:'操作失败',true);}finally{busy=false;root.classList.remove('busy');}}
-const option=(value:string,label:string,selected:string)=>`<option value="${e(value)}"${value===selected?' selected':''}>${e(label)}</option>`;
-function sourceForm(){const s=selectedRepo();return `<div class="sources"><label><span class="sr-only">仓库</span><select data-field="repositoryId" aria-label="仓库">${sources.map(r=>option(r.id,r.title,repositoryId)).join('')}</select></label><select data-field="kind" aria-label="比较来源">${(s?.sources||[]).map((k:string)=>option(k,({workspace:'工作区 · 当前未提交',staged:'暂存区',branch:'分支比较',commit:'提交比较',mr:'MR / Pull Request'} as any)[k],kind)).join('')}</select>${kind==='branch'?`<label><small>基准分支</small><input data-field="baseRef" aria-label="基准分支" value="${e(baseRef)}"></label>`:''}${['branch','commit'].includes(kind)?`<label><small>${kind==='commit'?'提交 SHA / 引用':'目标分支'}</small><input data-field="headRef" aria-label="目标引用" value="${e(headRef)}"></label>`:''}${kind==='mr'?`<label><small>MR 编号</small><input type="number" min="1" data-field="mrNumber" aria-label="MR 编号" value="${e(mrNumber)}"></label>`:''}<button class="primary" data-action="compare">读取真实变更</button><button data-action="history">浏览提交历史</button></div>`;}
-function fileList(){return `<ul class="files">${(review?.files||[]).map((f:any)=>`<li><button class="file-button ${file?.path===f.path?'active':''}" data-action="file" data-path="${e(f.path)}" title="${e(f.path)}"><span class="badge ${e(f.status)}">${statusNames[f.status]||'M'}</span><span class="file-name">${e(f.path.split('/').pop())}<span class="file-directory">${e(f.path.includes('/')?f.path.slice(0,f.path.lastIndexOf('/')):'根目录')}</span></span><span aria-label="${review.viewed.includes(f.path)?'已阅':'未阅'}">${review.viewed.includes(f.path)?'已':''}</span></button></li>`).join('')}</ul>`;}
-function render(){
-  root.innerHTML=`<header class="top"><div class="brand"><span class="brand-mark" aria-hidden="true">↔</span><div><h1>Repository Review</h1><small>版本、变更与审阅 · OpenMuse</small></div></div><div class="top-actions"><button class="${mode==='diff'?'active':''}" data-action="diff-mode">变更</button><button class="${mode==='versions'?'active':''}" data-action="versions-mode">文件版本</button><button class="quiet" data-action="source">来源</button></div></header><div class="workspace"><aside class="sidebar"><span class="label">比较来源</span>${sourceForm()}<div class="section-heading"><h3>变更文件</h3><small>${review?.fileCount||0}</small></div>${fileList()}<div class="section-heading"><h3>最近审阅</h3></div>${sessions.slice(0,8).map(r=>`<button class="history-item" data-action="session" data-id="${r.id}">${e(r.title)}<span>${e(decisionNames[r.decision])} · ${r.viewed.length}/${r.fileCount} 文件</span></button>`).join('')}<p class="flow-context">固定快照保留源引用与摘要。审阅记录可被 CI、DSH 和其他调用方使用。</p></aside><section class="content" aria-label="审阅内容">${mode==='versions'?versionView():diffView()}</section></div>`;
+const errors: Record<string, string> = {
+  REVIEW_NOT_COMPLETE: "请审阅全部文件并解决意见；来源不完整时不能完成审阅。",
+  VERSION_CURRENT_CHANGED: "文件已被其他人修改，请刷新后重新比较。",
+  VERSION_CLOSE_EDITOR_BEFORE_RESTORE:
+    "请先关闭此文件的原生编辑器，再恢复版本，避免未保存内容覆盖恢复结果。",
+  VERSION_RESOURCE_NOT_GRANTED: "该文件没有授权给此插件。",
+  GIT_SOURCE_UNAVAILABLE: "无法读取该 Git 来源，请检查引用与仓库授权。",
+  MR_SOURCE_UNAVAILABLE: "无法读取 MR，请检查账号授权与 MR 编号。",
+  VERSION_FILE_BUDGET_EXCEEDED:
+    "文件超过首版的安全读取上限，请使用原生应用查看。",
+};
+function toast(message: string, error = false) {
+  const t = document.querySelector<HTMLElement>("#toast")!;
+  t.textContent = errors[message] || message;
+  t.className = error ? "error" : "";
+  t.style.display = "block";
+  setTimeout(() => (t.style.display = "none"), 6500);
 }
-function diffView(){if(!review)return `<div class="empty"><span class="label">YOUR CHANGESET, IN FOCUS</span><h2>看清每一处变更。</h2><p>选择已授权仓库的工作区、分支、提交或 MR。代码与文档在同一工作台查看；文件历史由 OpenMuse 管理。</p><button class="primary" data-action="source">选择来源并开始</button></div>`;
-  return `<div class="comparison-head"><div><h2>${e(review.title)}</h2><p><span class="status-pill">${e(decisionNames[review.decision])}</span> <small>${review.fileCount} 个文件 · 已阅 ${review.viewed.length} · ${review.noteCount} 条意见</small></p></div><div class="digest">${e(review.source.kind)} · ${e(review.digest.slice(0,12))}<br>${e((review.source.headSha||review.source.headRef||'').slice(0,12))}</div></div>${review.incomplete?'<div class="notice">来源存在缺失或超出读取预算的文件。本快照不能作为完整审阅通过。</div>':''}<div class="toolbar"><div class="segment" role="group" aria-label="查看模式"><button class="${view==='unified'?'active':''}" data-action="view" data-view="unified">统一 Diff</button><button class="${view==='split'?'active':''}" data-action="view" data-view="split">并排 Diff</button><button class="${view==='before'?'active':''}" data-action="view" data-view="before">原版本</button><button class="${view==='after'?'active':''}" data-action="view" data-view="after">新版本</button></div><button class="quiet" data-action="export">审阅回执</button><select class="mobile-files" data-field="file" aria-label="变更文件">${review.files.map((f:any)=>option(f.path,`${statusNames[f.status]||'M'}  ${f.path}${review.viewed.includes(f.path)?'  已':''}`,file?.path||'')).join('')}</select></div>${file?fileView():`<div class="empty"><h2>没有变更</h2><p>所选来源与基准一致。可以选择其他分支、提交或文件版本。</p></div>`}${reviewPanel()}`;
+async function action(fn: () => Promise<void>) {
+  if (busy) return;
+  busy = true;
+  root.classList.add("busy");
+  root.setAttribute("aria-busy", "true");
+  try {
+    await fn();
+  } catch (error) {
+    toast(error instanceof Error ? error.message : "操作失败", true);
+  } finally {
+    busy = false;
+    root.classList.remove("busy");
+    root.removeAttribute("aria-busy");
+  }
 }
-function fileView(){const f=file!,model=buildHunks(f);return `<div class="file-head"><div><h3>${e(f.path)}</h3><div class="stats"><span class="added-text">+${model.additions}</span><span class="removed-text">−${model.deletions}</span>${f.previousPath?`<small>原路径 ${e(f.previousPath)}</small>`:''}</div></div><button data-action="viewed" class="${review.viewed.includes(f.path)?'active':''}">${review.viewed.includes(f.path)?'已 已阅':'标记已阅'}</button></div>${model.warning?`<div class="notice">${e(model.warning)}</div>`:''}${f.binary?binaryView(f):view==='before'||view==='after'?fullView(f):diffTable(f)}`;}
-function binaryView(f:ChangeFile){return `<div class="binary">${(['before','after'] as const).map(side=>{const info=side==='before'?f.beforeInfo:f.afterInfo;let image='';if(info?.base64){const b=info.base64;const mime=b.startsWith('iVBORw0KGgo')?'image/png':b.startsWith('/9j/')?'image/jpeg':b.startsWith('UklGR')?'image/webp':null;if(mime)image=`<img alt="${side==='before'?'原':'新'}版本图片" src="data:${mime};base64,${e(b)}">`;}return `<figure><h3>${side==='before'?'原版本':'新版本'}</h3><div class="version-meta">${info?`${info.byteLength} 字节<br>SHA-256 ${e(info.sha256)}`:'来源未提供原始字节'}</div>${image||'<p class="muted">该格式使用字节摘要比较，不生成文本 Diff。</p>'}${info?.base64?`<pre>${e(hexPreview(info.base64))}</pre>`:''}</figure>`;}).join('')}</div>`;}
-function hexPreview(base64:string){try{return Array.from(atob(base64).slice(0,128)).map((c,i)=>(i%16===0?'\n':'')+c.charCodeAt(0).toString(16).padStart(2,'0')).join(' ').trim();}catch{return'无法读取预览';}}
-function fullView(f:ChangeFile){const text=view==='before'?f.before:f.after;if(text===undefined)return '<div class="notice">此来源仅提供变更补丁，没有完整文件。请使用文件版本、工作区或提交来源读取全文。</div>';const lines=text.split('\n'),tokens=tokenize(text,f.path),start=page*500,end=Math.min(start+500,lines.length);return `<div class="diff-scroll"><table class="diff-table"><tbody>${lines.slice(start,end).map((text,i)=>`<tr><td class="gutter">${start+i+1}</td><td class="code"><code>${lineHtml({kind:'context',text,hunk:0},tokens?.[start+i])}</code></td></tr>`).join('')}</tbody></table>${pager(lines.length)}</div>`;}
-function pager(length:number){return length>500?`<div class="pager"><button data-action="page" data-page="${page-1}"${page===0?' disabled':''}>上一段</button><small>${page*500+1}–${Math.min((page+1)*500,length)} / ${length} 行</small><button data-action="page" data-page="${page+1}"${(page+1)*500>=length?' disabled':''}>下一段</button></div>`:'';}
-function diffTable(f:ChangeFile){const model=buildHunks(f);if(!model.hunks.length)return `<div class="empty"><p>${f.patchUnavailable?'补丁不可用。':f.status==='renamed'?'文件仅重命名，内容一致。':'没有文本变化。'}</p></div>`;
-  const oldTokens=f.before!==undefined?tokenize(f.before,f.previousPath||f.path):null,newTokens=f.after!==undefined?tokenize(f.after,f.path):null;
+const option = (value: string, label: string, selected: string) =>
+  `<option value="${e(value)}"${value === selected ? " selected" : ""}>${e(label)}</option>`;
+function sourceForm() {
+  const s = selectedRepo();
+  return `<div class="sources"><label><span class="sr-only">仓库</span><select data-field="repositoryId" aria-label="仓库">${sources.map((r) => option(r.id, r.title, repositoryId)).join("")}</select></label><select data-field="kind" aria-label="比较来源">${(s?.sources || []).map((k: string) => option(k, ({ workspace: "工作区 · 当前未提交", staged: "暂存区", branch: "分支比较", commit: "提交比较", mr: "MR / Pull Request" } as any)[k], kind)).join("")}</select>${kind === "branch" ? `<label><small>基准分支</small><input data-field="baseRef" aria-label="基准分支" value="${e(baseRef)}"></label>` : ""}${["branch", "commit"].includes(kind) ? `<label><small>${kind === "commit" ? "提交 SHA / 引用" : "目标分支"}</small><input data-field="headRef" aria-label="目标引用" value="${e(headRef)}"></label>` : ""}${kind === "mr" ? `<label><small>MR 编号</small><input type="number" min="1" data-field="mrNumber" aria-label="MR 编号" value="${e(mrNumber)}"></label>` : ""}<button class="primary" data-action="compare">读取真实变更</button><button data-action="history">浏览提交历史</button></div>`;
+}
+function fileList() {
+  return `<ul class="files">${(review?.files || []).map((f: any) => `<li><button class="file-button ${file?.path === f.path ? "active" : ""}" data-action="file" data-path="${e(f.path)}" title="${e(f.path)}"><span class="badge ${e(f.status)}">${statusNames[f.status] || "M"}</span><span class="file-name">${e(f.path.split("/").pop())}<span class="file-directory">${e(f.path.includes("/") ? f.path.slice(0, f.path.lastIndexOf("/")) : "根目录")}</span></span><span aria-label="${review.viewed.includes(f.path) ? "已阅" : "未阅"}">${review.viewed.includes(f.path) ? "已" : ""}</span></button></li>`).join("")}</ul>`;
+}
+function render() {
+  root.innerHTML = `<header class="top"><div class="brand"><span class="brand-mark" aria-hidden="true">↔</span><div><h1>Repository Review</h1><small>版本、变更与审阅 · OpenMuse</small></div></div><div class="top-actions"><button class="${mode === "diff" ? "active" : ""}" data-action="diff-mode">变更</button><button class="${mode === "versions" ? "active" : ""}" data-action="versions-mode">文件版本</button><button class="quiet" data-action="source">来源</button></div></header><div class="workspace"><aside class="sidebar"><span class="label">比较来源</span>${sourceForm()}<div class="section-heading"><h3>变更文件</h3><small>${review?.fileCount || 0}</small></div>${fileList()}<div class="section-heading"><h3>最近审阅</h3></div>${sessions
+    .slice(0, 8)
+    .map(
+      (r) =>
+        `<button class="history-item" data-action="session" data-id="${r.id}">${e(r.title)}<span>${e(decisionNames[r.decision])} · ${r.viewed.length}/${r.fileCount} 文件</span></button>`,
+    )
+    .join(
+      "",
+    )}<p class="flow-context">固定快照保留源引用与摘要。审阅记录可被 CI、DSH 和其他调用方使用。</p></aside><section class="content" aria-label="审阅内容">${mode === "versions" ? versionView() : diffView()}</section></div>`;
+}
+function diffView() {
+  if (!review)
+    return `<div class="empty"><span class="label">YOUR CHANGESET, IN FOCUS</span><h2>看清每一处变更。</h2><p>选择已授权仓库的工作区、分支、提交或 MR。代码与文档在同一工作台查看；文件历史由 OpenMuse 管理。</p><button class="primary" data-action="source">选择来源并开始</button></div>`;
+  return `<div class="comparison-head"><div><h2>${e(review.title)}</h2><p><span class="status-pill">${e(decisionNames[review.decision])}</span> <small>${review.fileCount} 个文件 · 已阅 ${review.viewed.length} · ${review.noteCount} 条意见</small></p></div><div class="digest">${e(review.source.kind)} · ${e(review.digest.slice(0, 12))}<br>${e((review.source.headSha || review.source.headRef || "").slice(0, 12))}</div></div>${review.incomplete ? '<div class="notice">来源存在缺失或超出读取预算的文件。本快照不能作为完整审阅通过。</div>' : ""}<div class="toolbar"><div class="segment" role="group" aria-label="查看模式"><button class="${view === "unified" ? "active" : ""}" data-action="view" data-view="unified">统一 Diff</button><button class="${view === "split" ? "active" : ""}" data-action="view" data-view="split">并排 Diff</button><button class="${view === "before" ? "active" : ""}" data-action="view" data-view="before">原版本</button><button class="${view === "after" ? "active" : ""}" data-action="view" data-view="after">新版本</button></div><button class="quiet" data-action="export">审阅回执</button><select class="mobile-files" data-field="file" aria-label="变更文件">${review.files.map((f: any) => option(f.path, `${statusNames[f.status] || "M"}  ${f.path}${review.viewed.includes(f.path) ? "  已" : ""}`, file?.path || "")).join("")}</select></div>${file ? fileView() : `<div class="empty"><h2>没有变更</h2><p>所选来源与基准一致。可以选择其他分支、提交或文件版本。</p></div>`}${reviewPanel()}`;
+}
+function fileView() {
+  const f = file!,
+    model = buildHunks(f);
+  return `<div class="file-head"><div><h3>${e(f.path)}</h3><div class="stats"><span class="added-text">+${model.additions}</span><span class="removed-text">−${model.deletions}</span>${f.previousPath ? `<small>原路径 ${e(f.previousPath)}</small>` : ""}</div></div><button data-action="viewed" class="${review.viewed.includes(f.path) ? "active" : ""}">${review.viewed.includes(f.path) ? "已阅" : "标记已阅"}</button></div>${model.warning ? `<div class="notice">${e(model.warning)}</div>` : ""}${f.binary ? binaryView(f) : view === "before" || view === "after" ? fullView(f) : diffTable(f)}`;
+}
+function binaryView(f: ChangeFile) {
+  return `<div class="binary">${(["before", "after"] as const)
+    .map((side) => {
+      const info = side === "before" ? f.beforeInfo : f.afterInfo;
+      let image = "";
+      if (info?.base64) {
+        const b = info.base64;
+        const mime = b.startsWith("iVBORw0KGgo")
+          ? "image/png"
+          : b.startsWith("/9j/")
+            ? "image/jpeg"
+            : b.startsWith("UklGR")
+              ? "image/webp"
+              : null;
+        if (mime)
+          image = `<img alt="${side === "before" ? "原" : "新"}版本图片" src="data:${mime};base64,${e(b)}">`;
+      }
+      return `<figure><h3>${side === "before" ? "原版本" : "新版本"}</h3><div class="version-meta">${info ? `${info.byteLength} 字节<br>SHA-256 ${e(info.sha256)}` : "来源未提供原始字节"}</div>${image || '<p class="muted">该格式使用字节摘要比较，不生成文本 Diff。</p>'}${info?.base64 ? `<pre>${e(hexPreview(info.base64))}</pre>` : ""}</figure>`;
+    })
+    .join("")}</div>`;
+}
+function hexPreview(base64: string) {
+  try {
+    return Array.from(atob(base64).slice(0, 128))
+      .map(
+        (c, i) =>
+          (i % 16 === 0 ? "\n" : "") +
+          c.charCodeAt(0).toString(16).padStart(2, "0"),
+      )
+      .join(" ")
+      .trim();
+  } catch {
+    return "无法读取预览";
+  }
+}
+function fullView(f: ChangeFile) {
+  const text = view === "before" ? f.before : f.after;
+  if (text === undefined)
+    return '<div class="notice">此来源仅提供变更补丁，没有完整文件。请使用文件版本、工作区或提交来源读取全文。</div>';
+  const lines = text.split("\n"),
+    tokens = tokenize(text, f.path),
+    start = page * 500,
+    end = Math.min(start + 500, lines.length);
+  return `<div class="diff-scroll"><table class="diff-table"><tbody>${lines
+    .slice(start, end)
+    .map(
+      (text, i) =>
+        `<tr><td class="gutter">${start + i + 1}</td><td class="code"><code>${lineHtml({ kind: "context", text, hunk: 0 }, tokens?.[start + i])}</code></td></tr>`,
+    )
+    .join("")}</tbody></table>${pager(lines.length)}</div>`;
+}
+function pager(length: number) {
+  return length > 500
+    ? `<div class="pager"><button data-action="page" data-page="${page - 1}"${page === 0 ? " disabled" : ""}>上一段</button><small>${page * 500 + 1}–${Math.min((page + 1) * 500, length)} / ${length} 行</small><button data-action="page" data-page="${page + 1}"${(page + 1) * 500 >= length ? " disabled" : ""}>下一段</button></div>`
+    : "";
+}
+function diffTable(f: ChangeFile) {
+  const model = buildHunks(f);
+  if (!model.hunks.length)
+    return `<div class="empty"><p>${f.patchUnavailable ? "补丁不可用。" : f.status === "renamed" ? "文件仅重命名，内容一致。" : "没有文本变化。"}</p></div>`;
+  const oldTokens =
+      f.before !== undefined
+        ? tokenize(f.before, f.previousPath || f.path)
+        : null,
+    newTokens = f.after !== undefined ? tokenize(f.after, f.path) : null;
   // Native MR patches retain their absolute line anchors. Tokenize each full
   // hunk as a bounded fallback; never renumber the source to fragment offsets.
-  const rows:{hunk?:any;line?:DiffLine;pair?:ReturnType<typeof pairedRows>[number];patchOld?:any[];patchNew?:any[]}[]=[];
-  for(const h of model.hunks){const patchOld=oldTokens?null:tokenize(h.lines.filter(l=>l.kind==='context'||l.kind==='delete').map(l=>l.text).join('\n'),f.path),patchNew=newTokens?null:tokenize(h.lines.filter(l=>l.kind==='context'||l.kind==='add').map(l=>l.text).join('\n'),f.path);const oldMap=new Map<number,any>(),newMap=new Map<number,any>();let oi=0,ni=0;for(const l of h.lines){if(l.oldLine!==undefined)oldMap.set(l.oldLine,patchOld?.[oi++]);if(l.newLine!==undefined)newMap.set(l.newLine,patchNew?.[ni++]);}
-    rows.push({hunk:h});for(const row of view==='split'?pairedRows(h.lines).map(pair=>({pair})):h.lines.map(line=>({line})))rows.push({...row,patchOld:oldMap as any,patchNew:newMap as any});
+  const rows: {
+    hunk?: any;
+    line?: DiffLine;
+    pair?: ReturnType<typeof pairedRows>[number];
+    patchOld?: any[];
+    patchNew?: any[];
+  }[] = [];
+  for (const h of model.hunks) {
+    const patchOld = oldTokens
+        ? null
+        : tokenize(
+            h.lines
+              .filter((l) => l.kind === "context" || l.kind === "delete")
+              .map((l) => l.text)
+              .join("\n"),
+            f.path,
+          ),
+      patchNew = newTokens
+        ? null
+        : tokenize(
+            h.lines
+              .filter((l) => l.kind === "context" || l.kind === "add")
+              .map((l) => l.text)
+              .join("\n"),
+            f.path,
+          );
+    const oldMap = new Map<number, any>(),
+      newMap = new Map<number, any>();
+    let oi = 0,
+      ni = 0;
+    for (const l of h.lines) {
+      if (l.oldLine !== undefined) oldMap.set(l.oldLine, patchOld?.[oi++]);
+      if (l.newLine !== undefined) newMap.set(l.newLine, patchNew?.[ni++]);
+    }
+    rows.push({ hunk: h });
+    for (const row of view === "split"
+      ? pairedRows(h.lines).map((pair) => ({ pair }))
+      : h.lines.map((line) => ({ line })))
+      rows.push({ ...row, patchOld: oldMap as any, patchNew: newMap as any });
   }
-  function cell(line:DiffLine|undefined,side:'left'|'right',extra='',patch?:any){if(!line)return `<td class="gutter ${extra}"></td><td class="code"></td>`;const number=side==='left'?line.oldLine:line.newLine;const tokens=number===undefined?undefined:(side==='left'?oldTokens?.[number-1]:newTokens?.[number-1])||patch?.get(number);return `<td class="gutter ${extra} line-${line.kind}">${number===undefined?'':`<button class="anchor" data-action="note" data-side="${side}" data-line="${number}" aria-label="在${side==='left'?'原':'新'}版本第 ${number} 行添加意见">${number}</button>`}</td><td class="code line-${line.kind}"><code>${lineHtml(line,tokens)}</code></td>`;}
-  const html=rows.slice(page*500,(page+1)*500).map(row=>{if(row.hunk){const h=row.hunk;return `<tr class="hunk"><td colspan="${view==='split'?4:4}">@@ −${h.oldStart},${h.oldLines} +${h.newStart},${h.newLines} @@</td></tr>`;}if(row.pair)return `<tr>${cell(row.pair.left,'left','',row.patchOld)}${cell(row.pair.right,'right','split-divider',row.patchNew)}</tr>`;const l=row.line!,side=l.kind==='delete'?'left':'right',n=side==='left'?l.oldLine:l.newLine,tokens=n===undefined?undefined:(side==='left'?oldTokens?.[n-1]||((row.patchOld as any)?.get(n)):newTokens?.[n-1]||((row.patchNew as any)?.get(n)));return `<tr class="line-${l.kind}"><td class="gutter">${l.oldLine===undefined?'':`<button class="anchor" data-action="note" data-side="left" data-line="${l.oldLine}" aria-label="在原版本第 ${l.oldLine} 行添加意见">${l.oldLine}</button>`}</td><td class="gutter">${l.newLine===undefined?'':`<button class="anchor" data-action="note" data-side="right" data-line="${l.newLine}" aria-label="在新版本第 ${l.newLine} 行添加意见">${l.newLine}</button>`}</td><td class="sign">${l.kind==='add'?'+':l.kind==='delete'?'−':''}</td><td class="code"><code>${lineHtml(l,tokens)}</code></td></tr>`;}).join('');
-  return `<div class="diff-scroll"><table class="diff-table ${view==='split'?'split':''}"><colgroup>${view==='split'?'<col style="width:52px"><col><col style="width:52px"><col>':'<col class="gutter"><col class="gutter"><col class="sign"><col>'}</colgroup><tbody>${html}</tbody></table>${pager(rows.length)}</div>`;
+  function cell(
+    line: DiffLine | undefined,
+    side: "left" | "right",
+    extra = "",
+    patch?: any,
+  ) {
+    if (!line) return `<td class="gutter ${extra}"></td><td class="code"></td>`;
+    const number = side === "left" ? line.oldLine : line.newLine;
+    const tokens =
+      number === undefined
+        ? undefined
+        : (side === "left"
+            ? oldTokens?.[number - 1]
+            : newTokens?.[number - 1]) || patch?.get(number);
+    return `<td class="gutter ${extra} line-${line.kind}">${number === undefined ? "" : `<button class="anchor" data-action="note" data-side="${side}" data-line="${number}" aria-label="在${side === "left" ? "原" : "新"}版本第 ${number} 行添加意见">${number}</button>`}</td><td class="code line-${line.kind}"><code>${lineHtml(line, tokens)}</code></td>`;
+  }
+  const html = rows
+    .slice(page * 500, (page + 1) * 500)
+    .map((row) => {
+      if (row.hunk) {
+        const h = row.hunk;
+        return `<tr class="hunk"><td colspan="${view === "split" ? 4 : 4}">@@ −${h.oldStart},${h.oldLines} +${h.newStart},${h.newLines} @@</td></tr>`;
+      }
+      if (row.pair)
+        return `<tr>${cell(row.pair.left, "left", "", row.patchOld)}${cell(row.pair.right, "right", "split-divider", row.patchNew)}</tr>`;
+      const l = row.line!,
+        side = l.kind === "delete" ? "left" : "right",
+        n = side === "left" ? l.oldLine : l.newLine,
+        tokens =
+          n === undefined
+            ? undefined
+            : side === "left"
+              ? oldTokens?.[n - 1] || (row.patchOld as any)?.get(n)
+              : newTokens?.[n - 1] || (row.patchNew as any)?.get(n);
+      return `<tr class="line-${l.kind}"><td class="gutter">${l.oldLine === undefined ? "" : `<button class="anchor" data-action="note" data-side="left" data-line="${l.oldLine}" aria-label="在原版本第 ${l.oldLine} 行添加意见">${l.oldLine}</button>`}</td><td class="gutter">${l.newLine === undefined ? "" : `<button class="anchor" data-action="note" data-side="right" data-line="${l.newLine}" aria-label="在新版本第 ${l.newLine} 行添加意见">${l.newLine}</button>`}</td><td class="sign">${l.kind === "add" ? "+" : l.kind === "delete" ? "−" : ""}</td><td class="code"><code>${lineHtml(l, tokens)}</code></td></tr>`;
+    })
+    .join("");
+  return `<div class="diff-scroll"><table class="diff-table ${view === "split" ? "split" : ""}"><colgroup>${view === "split" ? '<col style="width:52px"><col><col style="width:52px"><col>' : '<col class="gutter"><col class="gutter"><col class="sign"><col>'}</colgroup><tbody>${html}</tbody></table>${pager(rows.length)}</div>`;
 }
-function reviewPanel(){return `<div class="review-panel"><div class="review-title"><h3>审阅意见</h3><small>点击 Diff 行号添加 · ${e(review.actor)}</small></div>${review.notes.length?review.notes.map((n:any)=>`<article class="note ${n.resolved?'resolved':''}"><div class="note-meta">${e(n.path)} · ${n.side==='left'?'原':'新'}版本 L${n.line} · ${e(n.actor)}</div><p>${e(n.body)}</p><button data-action="resolve" data-id="${n.id}" data-resolved="${!n.resolved}">${n.resolved?'重新打开':'解决意见'}</button></article>`).join(''):'<p class="muted">还没有意见。已阅状态与意见固定在此份变更快照中。</p>'}<div class="review-actions"><small>这里记录本地审阅结论，不会向代码平台提交批准或执行合并。</small><div class="row"><button data-action="decision" data-decision="changes_requested">需要修改</button><button class="primary" data-action="decision" data-decision="accepted">完成审阅</button></div></div></div>`;}
-function versionView(){return `<div class="version-area"><div><span class="label">HOST VERSION AUTHORITY</span><h2>文件版本</h2><p class="version-meta">复用 OpenMuse 的版本库。代码、文本、图片及其他文件以完整字节保存；恢复前自动保留当前版本。</p></div>${hostResources.length?`<label>已授权文件<select data-field="resourceId" aria-label="版本文件">${hostResources.map(r=>option(r.id,r.path,resourceId)).join('')}</select></label><div class="row"><button data-action="capture" class="primary"${!hostWritable?' disabled':''}>保存当前版本</button><button data-action="reload-versions">刷新历史</button></div><div class="version-meta">${current?`当前 ${current.byteLength} 字节 · ${e(current.sha256.slice(0,16))}${current.binary?' · 二进制':''}`:''}</div><div class="version-grid"><label>原版本<select data-field="beforeVersion" aria-label="原版本">${versions.map(v=>option(v.id,versionLabel(v),beforeVersion)).join('')}</select></label><label>新版本<select data-field="afterVersion" aria-label="新版本">${option('','当前文件',afterVersion)}${versions.map(v=>option(v.id,versionLabel(v),afterVersion)).join('')}</select></label></div><button data-action="compare-versions"${!beforeVersion?' disabled':''}>比较所选版本</button><div><h3>版本历史 · ${versions.length}</h3>${versions.map(v=>`<div class="version-row"><div><strong>${e(v.sha256.slice(0,12))}</strong><div class="version-meta">${e(new Date(v.createdAt).toLocaleString())}<br>${v.byteLength} 字节 · 事件 ${e(v.id.slice(0,8))}</div></div><div class="row"><button data-action="read-version" data-id="${e(v.id)}">查看</button><button data-action="restore" data-id="${e(v.id)}"${!hostWritable?' disabled':''}>恢复</button></div></div>`).join('')}</div>`:'<div class="notice">当前 Host 没有向此插件授予文件版本能力。请由安装方选择文件并授予 versions.read；写入还需要 versions.write。仓库 Diff 可以独立使用。</div>'}</div>`;}
-function versionLabel(v:any){return `${new Date(v.createdAt).toLocaleString()} · ${v.sha256.slice(0,8)} · ${v.byteLength}B`;}
-async function loadReview(id:string,path?:string){review=await call('review_read',{comparisonId:id});const selected=path&&review.files.some((f:any)=>f.path===path)?path:review.files[0]?.path;file=selected?(await call('review_read',{comparisonId:id,path:selected})).file:null;page=0;sessions=(await call('review_list')).comparisons;render();}
-async function refreshVersions(){if(!resourceId)return;versions=(await call('host_versions_list',{resourceId})).versions;current=await call('host_versions_read',{resourceId});if(!versions.some(v=>v.id===beforeVersion))beforeVersion=versions[0]?.id||'';if(afterVersion&&!versions.some(v=>v.id===afterVersion))afterVersion='';render();}
-async function hostComparison(before:any,after:any,title:string){return call('review_open',{schema:'openmuse.repository-review/1',title,source:{kind:'versions',provider:'openmuse.host-versions/1',baseRef:before.versionId||before.sha256,headRef:after.versionId||after.sha256},files:[{path:after.path,status:'modified',before:before.text,after:after.text,binary:before.binary||after.binary,beforeInfo:{sha256:before.sha256,byteLength:before.byteLength,base64:before.base64},afterInfo:{sha256:after.sha256,byteLength:after.byteLength,base64:after.base64}}]});}
-function modal(html:string){dialog.className='';dialog.innerHTML=html;dialog.showModal();dialog.querySelector<HTMLElement>('input,textarea,button')?.focus();}
-root.addEventListener('change',event=>{const el=event.target as HTMLInputElement;const field=el.dataset.field;if(!field)return;if(field==='file')return void action(async()=>{file=(await call('review_read',{comparisonId:review.id,path:el.value})).file;page=0;render();});if(field==='resourceId'){resourceId=el.value;return void action(refreshVersions);}const values:Record<string,(s:string)=>void>={repositoryId:s=>{repositoryId=s;if(!selectedRepo()?.sources.includes(kind))kind='workspace';},kind:s=>kind=s,baseRef:s=>baseRef=s,headRef:s=>headRef=s,mrNumber:s=>mrNumber=s,beforeVersion:s=>beforeVersion=s,afterVersion:s=>afterVersion=s};values[field]?.(el.value);if(['repositoryId','kind'].includes(field))render();});
-dialog.addEventListener('change',event=>{const el=event.target as HTMLInputElement;const field=el.dataset.field;if(!field)return;const values:Record<string,(s:string)=>void>={repositoryId:s=>repositoryId=s,kind:s=>kind=s,baseRef:s=>baseRef=s,headRef:s=>headRef=s,mrNumber:s=>mrNumber=s};values[field]?.(el.value);if(['kind','repositoryId'].includes(field))dialog.querySelector('.source-form')!.innerHTML=sourceForm();});
-async function change(args:Record<string,unknown>){await call('review_change',{comparisonId:review.id,expectedDigest:review.digest,commandId:uid(),...args});await loadReview(review.id,file?.path);}
-async function click(event:MouseEvent){const button=(event.target as HTMLElement).closest<HTMLElement>('[data-action]');if(!button)return;const a=button.dataset.action;
-  if(a==='close')return dialog.close();
-  if(a==='source'){modal(`<div class="sources-dialog"><div class="row"><h2>选择比较来源</h2><button class="quiet" data-action="close">关闭</button></div><div class="source-form">${sourceForm()}</div></div>`);return;}
-  if(a==='view'){view=button.dataset.view!;page=0;render();return;}
-  if(a==='page'){page=Number(button.dataset.page);render();return;}
-  if(a==='diff-mode'){mode='diff';render();return;}
-  if(a==='note'){modal(`<h2>添加审阅意见</h2><p class="version-meta">${e(file!.path)} · ${button.dataset.side==='left'?'原':'新'}版本 L${button.dataset.line}</p><form id="note-form"><label class="sr-only" for="note-body">审阅意见</label><textarea id="note-body" name="body" required maxlength="10000" placeholder="说明问题、影响与建议…"></textarea><div class="row"><button class="primary" type="submit">保存意见</button><button type="button" data-action="close">取消</button></div></form>`);dialog.querySelector('form')!.addEventListener('submit',event=>{event.preventDefault();const body=(dialog.querySelector('textarea') as HTMLTextAreaElement).value;void action(async()=>{await change({path:file!.path,side:button.dataset.side,line:Number(button.dataset.line),body});dialog.close();toast('意见已保存到此变更快照');});});return;}
-  await action(async()=>{
-    if(a==='compare'){dialog.close();const result=await call('repository_compare',{repositoryId,kind,...(kind==='branch'?{baseRef,headRef}:kind==='commit'?{headRef}:kind==='mr'?{number:Number(mrNumber)}:{})});mode='diff';await loadReview(result.id);}
-    if(a==='session'){mode='diff';await loadReview(button.dataset.id!);}
-    if(a==='file'){file=(await call('review_read',{comparisonId:review.id,path:button.dataset.path})).file;page=0;render();}
-    if(a==='viewed')await change({path:file!.path,viewed:!review.viewed.includes(file!.path)});
-    if(a==='resolve')await change({noteId:button.dataset.id,resolved:button.dataset.resolved==='true'});
-    if(a==='decision'){await change({decision:button.dataset.decision});toast('本地审阅结论已归档');}
-    if(a==='export'){const receipt=await call('review_export',{comparisonId:review.id});modal(`<h2>审阅回执</h2><p class="version-meta">可由 Muse-CI 等调用方通过 review_export 获取。</p><pre class="full-source"><code>${e(JSON.stringify(receipt,null,2))}</code></pre><button data-action="close">关闭</button>`);}
-    if(a==='history'){const history=await call('repository_history',{repositoryId});modal(`<h2>提交历史</h2><p class="version-meta">${e(selectedRepo()?.title)}</p>${history.commits.map((c:any)=>`<button class="history-item" data-action="commit" data-sha="${e(c.sha)}">${e(c.title)}<span>${c.sha.slice(0,12)} · ${e(c.at)}</span></button>`).join('')}<button data-action="close">关闭</button>`);}
-    if(a==='commit'){headRef=button.dataset.sha!;kind='commit';dialog.close();const result=await call('repository_compare',{repositoryId,kind,headRef});mode='diff';await loadReview(result.id);}
-    if(a==='versions-mode'){mode='versions';await refreshVersions();render();}
-    if(a==='reload-versions')await refreshVersions();
-    if(a==='capture'){const result=await call('host_versions_capture',{resourceId});await refreshVersions();beforeVersion=result.versionId;render();toast('已保存到 Host 版本库');}
-    if(a==='compare-versions'){const before=await call('host_versions_read',{resourceId,versionId:beforeVersion}),after=await call('host_versions_read',{resourceId,...(afterVersion?{versionId:afterVersion}:{})});const result=await hostComparison(before,after,'文件版本 · '+after.path);mode='diff';await loadReview(result.id);}
-    if(a==='read-version'){const saved=await call('host_versions_read',{resourceId,versionId:button.dataset.id});const result=await hostComparison(saved,saved,'完整版本 · '+saved.path);mode='diff';view='after';await loadReview(result.id);}
-    if(a==='restore'){const savedId=button.dataset.id!;current=await call('host_versions_read',{resourceId});const expected=current.sha256;modal(`<h2>恢复此文件版本？</h2><p class="version-meta">${e(current.path)}<br>恢复会替换当前完整文件；Host 会先保留当前版本。文件变化后，本次恢复会被拒绝。</p><div class="row"><button class="primary" id="confirm-restore">恢复并保留备份</button><button data-action="close">取消</button></div>`);dialog.querySelector('#confirm-restore')!.addEventListener('click',()=>void action(async()=>{await call('host_versions_restore',{resourceId,versionId:savedId,expectedSha256:expected});dialog.close();await refreshVersions();toast('版本已恢复，原文件已保留为历史版本');}),{once:true});}
+function reviewPanel() {
+  return `<div class="review-panel"><div class="review-title"><h3>审阅意见</h3><small>点击 Diff 行号添加 · ${e(review.actor)}</small></div>${review.notes.length ? review.notes.map((n: any) => `<article class="note ${n.resolved ? "resolved" : ""}"><div class="note-meta">${e(n.path)} · ${n.side === "left" ? "原" : "新"}版本 L${n.line} · ${e(n.actor)}</div><p>${e(n.body)}</p><button data-action="resolve" data-id="${n.id}" data-resolved="${!n.resolved}">${n.resolved ? "重新打开" : "解决意见"}</button></article>`).join("") : '<p class="muted">还没有意见。已阅状态与意见固定在此份变更快照中。</p>'}<div class="review-actions"><small>这里记录本地审阅结论，不会向代码平台提交批准或执行合并。</small><div class="row"><button data-action="decision" data-decision="changes_requested">需要修改</button><button class="primary" data-action="decision" data-decision="accepted">完成审阅</button></div></div></div>`;
+}
+function versionView() {
+  return `<div class="version-area"><div><span class="label">HOST VERSION AUTHORITY</span><h2>文件版本</h2><p class="version-meta">复用 OpenMuse 的版本库。代码、文本、图片及其他文件以完整字节保存；恢复前自动保留当前版本。</p></div>${hostResources.length ? `<label>已授权文件<select data-field="resourceId" aria-label="版本文件">${hostResources.map((r) => option(r.id, r.path, resourceId)).join("")}</select></label><div class="row"><button data-action="capture" class="primary"${!hostWritable ? " disabled" : ""}>保存当前版本</button><button data-action="reload-versions">刷新历史</button></div><div class="version-meta">${current ? `当前 ${current.byteLength} 字节 · ${e(current.sha256.slice(0, 16))}${current.binary ? " · 二进制" : ""}` : ""}</div><div class="version-grid"><label>原版本<select data-field="beforeVersion" aria-label="原版本">${versions.map((v) => option(v.id, versionLabel(v), beforeVersion)).join("")}</select></label><label>新版本<select data-field="afterVersion" aria-label="新版本">${option("", "当前文件", afterVersion)}${versions.map((v) => option(v.id, versionLabel(v), afterVersion)).join("")}</select></label></div><button data-action="compare-versions"${!beforeVersion ? " disabled" : ""}>比较所选版本</button><div><h3>版本历史 · ${versions.length}</h3>${versions.map((v) => `<div class="version-row"><div><strong>${e(v.sha256.slice(0, 12))}</strong><div class="version-meta">${e(new Date(v.createdAt).toLocaleString())}<br>${v.byteLength} 字节 · 事件 ${e(v.id.slice(0, 8))}</div></div><div class="row"><button data-action="read-version" data-id="${e(v.id)}">查看</button><button data-action="restore" data-id="${e(v.id)}"${!hostWritable ? " disabled" : ""}>恢复</button></div></div>`).join("")}</div>` : '<div class="notice">当前 Host 没有向此插件授予文件版本能力。请由安装方选择文件并授予 versions.read；写入还需要 versions.write。仓库 Diff 可以独立使用。</div>'}</div>`;
+}
+function versionLabel(v: any) {
+  return `${new Date(v.createdAt).toLocaleString()} · ${v.sha256.slice(0, 8)} · ${v.byteLength}B`;
+}
+async function loadReview(id: string, path?: string) {
+  review = await call("review_read", { comparisonId: id });
+  const selected =
+    path && review.files.some((f: any) => f.path === path)
+      ? path
+      : review.files[0]?.path;
+  file = selected
+    ? (await call("review_read", { comparisonId: id, path: selected })).file
+    : null;
+  page = 0;
+  sessions = (await call("review_list")).comparisons;
+  render();
+}
+async function refreshVersions() {
+  if (!resourceId) return;
+  versions = (await call("host_versions_list", { resourceId })).versions;
+  current = await call("host_versions_read", { resourceId });
+  if (!versions.some((v) => v.id === beforeVersion))
+    beforeVersion = versions[0]?.id || "";
+  if (afterVersion && !versions.some((v) => v.id === afterVersion))
+    afterVersion = "";
+  render();
+}
+async function hostComparison(before: any, after: any, title: string) {
+  return call("review_open", {
+    schema: "openmuse.repository-review/1",
+    title,
+    source: {
+      kind: "versions",
+      provider: "openmuse.host-versions/1",
+      baseRef: before.versionId || before.sha256,
+      headRef: after.versionId || after.sha256,
+    },
+    files: [
+      {
+        path: after.path,
+        status: "modified",
+        before: before.text,
+        after: after.text,
+        binary: before.binary || after.binary,
+        beforeInfo: {
+          sha256: before.sha256,
+          byteLength: before.byteLength,
+          base64: before.base64,
+        },
+        afterInfo: {
+          sha256: after.sha256,
+          byteLength: after.byteLength,
+          base64: after.base64,
+        },
+      },
+    ],
   });
 }
-root.addEventListener('click',event=>void click(event));dialog.addEventListener('click',event=>void click(event));
-app.ontoolresult=result=>{const r=result.structuredContent as any;if(r?.id&&r?.digest)void action(async()=>{await loadReview(r.id);});};
-async function boot(){await app.connect();if(!app.getHostCapabilities()?.serverTools)throw Error('Host 尚未提供 MCP 工具能力');sources=(await call('review_sources')).repositories;repositoryId=sources[0]?.id||'';sessions=(await call('review_list')).comparisons;try{const h=await call('host_versions_list');hostResources=h.resources;hostWritable=h.writable;resourceId=h.resources[0]?.id||'';}catch{/* Optional negotiated Host capability. */}if(sessions[0])await loadReview(sessions[0].id);else render();}
-void boot().catch(error=>{root.innerHTML=`<div class="error-box"><h2>尚未连接审阅服务</h2><p>${e(error.message)}</p><p class="muted">请从 OpenMuse 的应用入口打开已安装插件，并确认 Desktop 在线。</p></div>`;});
+function modal(html: string) {
+  dialog.className = "";
+  dialog.innerHTML = html;
+  dialog.showModal();
+  dialog.querySelector<HTMLElement>("input,textarea,button")?.focus();
+}
+root.addEventListener("change", (event) => {
+  const el = event.target as HTMLInputElement;
+  const field = el.dataset.field;
+  if (!field) return;
+  if (field === "file")
+    return void action(async () => {
+      file = (
+        await call("review_read", { comparisonId: review.id, path: el.value })
+      ).file;
+      page = 0;
+      render();
+    });
+  if (field === "resourceId") {
+    resourceId = el.value;
+    return void action(refreshVersions);
+  }
+  const values: Record<string, (s: string) => void> = {
+    repositoryId: (s) => {
+      repositoryId = s;
+      if (!selectedRepo()?.sources.includes(kind)) kind = "workspace";
+    },
+    kind: (s) => (kind = s),
+    baseRef: (s) => (baseRef = s),
+    headRef: (s) => (headRef = s),
+    mrNumber: (s) => (mrNumber = s),
+    beforeVersion: (s) => (beforeVersion = s),
+    afterVersion: (s) => (afterVersion = s),
+  };
+  values[field]?.(el.value);
+  if (["repositoryId", "kind"].includes(field)) render();
+});
+dialog.addEventListener("change", (event) => {
+  const el = event.target as HTMLInputElement;
+  const field = el.dataset.field;
+  if (!field) return;
+  const values: Record<string, (s: string) => void> = {
+    repositoryId: (s) => (repositoryId = s),
+    kind: (s) => (kind = s),
+    baseRef: (s) => (baseRef = s),
+    headRef: (s) => (headRef = s),
+    mrNumber: (s) => (mrNumber = s),
+  };
+  values[field]?.(el.value);
+  if (["kind", "repositoryId"].includes(field))
+    dialog.querySelector(".source-form")!.innerHTML = sourceForm();
+});
+async function change(args: Record<string, unknown>) {
+  await call("review_change", {
+    comparisonId: review.id,
+    expectedDigest: review.digest,
+    commandId: uid(),
+    ...args,
+  });
+  await loadReview(review.id, file?.path);
+}
+async function click(event: MouseEvent) {
+  const button = (event.target as HTMLElement).closest<HTMLElement>(
+    "[data-action]",
+  );
+  if (!button) return;
+  const a = button.dataset.action;
+  if (a === "close") return dialog.close();
+  if (a === "source") {
+    modal(
+      `<div class="sources-dialog"><div class="row"><h2>选择比较来源</h2><button class="quiet" data-action="close">关闭</button></div><div class="source-form">${sourceForm()}</div></div>`,
+    );
+    return;
+  }
+  if (a === "view") {
+    const next = button.dataset.view!;
+    if (
+      file &&
+      ((next === "before" && file.status === "added") ||
+        (next === "after" && file.status === "deleted"))
+    ) {
+      file[next] = "";
+      view = next;
+      page = 0;
+      render();
+      return;
+    }
+    if (
+      (next === "before" || next === "after") &&
+      file &&
+      file[next] === undefined &&
+      review?.source.repository &&
+      review.source.provider !== "openmuse.host-versions/1"
+    ) {
+      await action(async () => {
+        const side = next === "before" ? "baseRef" : "headRef";
+        const saved = await call("repository_read", {
+          repositoryId: review.source.repository,
+          ref: review.source[side],
+          path:
+            next === "before" ? file!.previousPath || file!.path : file!.path,
+        });
+        if (saved.binary) {
+          file!.binary = true;
+          file![next === "before" ? "beforeInfo" : "afterInfo"] = {
+            sha256: saved.sha256,
+            byteLength: saved.byteLength,
+            base64: saved.base64,
+          };
+        } else file![next] = saved.text;
+        view = next;
+        page = 0;
+        render();
+      });
+      return;
+    }
+    view = next;
+    page = 0;
+    render();
+    return;
+  }
+  if (a === "page") {
+    page = Number(button.dataset.page);
+    render();
+    return;
+  }
+  if (a === "diff-mode") {
+    mode = "diff";
+    render();
+    return;
+  }
+  if (a === "note") {
+    modal(
+      `<h2>添加审阅意见</h2><p class="version-meta">${e(file!.path)} · ${button.dataset.side === "left" ? "原" : "新"}版本 L${button.dataset.line}</p><div id="note-form" role="form" aria-label="审阅意见表单"><label class="sr-only" for="note-body">审阅意见</label><textarea id="note-body" name="body" required maxlength="10000" placeholder="说明问题、影响与建议…"></textarea><div class="row"><button class="primary" type="button" id="save-note">保存意见</button><button type="button" data-action="close">取消</button></div></div>`,
+    );
+    dialog.querySelector("#save-note")!.addEventListener("click", (event) => {
+      event.preventDefault();
+      const body = (dialog.querySelector("textarea") as HTMLTextAreaElement)
+        .value;
+      if (!body.trim()) {
+        toast("请填写审阅意见", true);
+        return;
+      }
+      void action(async () => {
+        await change({
+          path: file!.path,
+          side: button.dataset.side,
+          line: Number(button.dataset.line),
+          body,
+        });
+        dialog.close();
+        toast("意见已保存到此变更快照");
+      });
+    });
+    return;
+  }
+  await action(async () => {
+    if (a === "compare") {
+      dialog.close();
+      const result = await call("repository_compare", {
+        repositoryId,
+        kind,
+        ...(kind === "branch"
+          ? { baseRef, headRef }
+          : kind === "commit"
+            ? { headRef }
+            : kind === "mr"
+              ? { number: Number(mrNumber) }
+              : {}),
+      });
+      mode = "diff";
+      await loadReview(result.id);
+    }
+    if (a === "session") {
+      mode = "diff";
+      await loadReview(button.dataset.id!);
+    }
+    if (a === "file") {
+      file = (
+        await call("review_read", {
+          comparisonId: review.id,
+          path: button.dataset.path,
+        })
+      ).file;
+      page = 0;
+      render();
+    }
+    if (a === "viewed")
+      await change({
+        path: file!.path,
+        viewed: !review.viewed.includes(file!.path),
+      });
+    if (a === "resolve")
+      await change({
+        noteId: button.dataset.id,
+        resolved: button.dataset.resolved === "true",
+      });
+    if (a === "decision") {
+      await change({ decision: button.dataset.decision });
+      toast("本地审阅结论已归档");
+    }
+    if (a === "export") {
+      const receipt = await call("review_export", { comparisonId: review.id });
+      modal(
+        `<h2>审阅回执</h2><p class="version-meta">可由 Muse-CI 等调用方通过 review_export 获取。</p><pre class="full-source"><code>${e(JSON.stringify(receipt, null, 2))}</code></pre><button data-action="close">关闭</button>`,
+      );
+    }
+    if (a === "history") {
+      const history = await call("repository_history", { repositoryId });
+      modal(
+        `<h2>提交历史</h2><p class="version-meta">${e(selectedRepo()?.title)}</p>${history.commits.map((c: any) => `<button class="history-item" data-action="commit" data-sha="${e(c.sha)}">${e(c.title)}<span>${c.sha.slice(0, 12)} · ${e(c.at)}</span></button>`).join("")}<button data-action="close">关闭</button>`,
+      );
+    }
+    if (a === "commit") {
+      headRef = button.dataset.sha!;
+      kind = "commit";
+      dialog.close();
+      const result = await call("repository_compare", {
+        repositoryId,
+        kind,
+        headRef,
+      });
+      mode = "diff";
+      await loadReview(result.id);
+    }
+    if (a === "versions-mode") {
+      mode = "versions";
+      await refreshVersions();
+      render();
+    }
+    if (a === "reload-versions") await refreshVersions();
+    if (a === "capture") {
+      const result = await call("host_versions_capture", { resourceId });
+      await refreshVersions();
+      beforeVersion = result.versionId;
+      render();
+      toast("已保存到 Host 版本库");
+    }
+    if (a === "compare-versions") {
+      const before = await call("host_versions_read", {
+          resourceId,
+          versionId: beforeVersion,
+        }),
+        after = await call("host_versions_read", {
+          resourceId,
+          ...(afterVersion ? { versionId: afterVersion } : {}),
+        });
+      const result = await hostComparison(
+        before,
+        after,
+        "文件版本 · " + after.path,
+      );
+      mode = "diff";
+      await loadReview(result.id);
+    }
+    if (a === "read-version") {
+      const saved = await call("host_versions_read", {
+        resourceId,
+        versionId: button.dataset.id,
+      });
+      const result = await hostComparison(
+        saved,
+        saved,
+        "完整版本 · " + saved.path,
+      );
+      mode = "diff";
+      view = "after";
+      await loadReview(result.id);
+    }
+    if (a === "restore") {
+      const savedId = button.dataset.id!;
+      current = await call("host_versions_read", { resourceId });
+      const expected = current.sha256;
+      modal(
+        `<h2>恢复此文件版本？</h2><p class="version-meta">${e(current.path)}<br>恢复会替换当前完整文件；Host 会先保留当前版本。文件变化后，本次恢复会被拒绝。</p><div class="row"><button class="primary" id="confirm-restore">恢复并保留备份</button><button data-action="close">取消</button></div>`,
+      );
+      dialog.querySelector("#confirm-restore")!.addEventListener(
+        "click",
+        () =>
+          void action(async () => {
+            await call("host_versions_restore", {
+              resourceId,
+              versionId: savedId,
+              expectedSha256: expected,
+            });
+            dialog.close();
+            await refreshVersions();
+            toast("版本已恢复，原文件已保留为历史版本");
+          }),
+        { once: true },
+      );
+    }
+  });
+}
+root.addEventListener("click", (event) => void click(event));
+dialog.addEventListener("click", (event) => void click(event));
+app.ontoolresult = (result) => {
+  const r = result.structuredContent as any;
+  if (r?.id && r?.digest)
+    void action(async () => {
+      await loadReview(r.id);
+    });
+};
+async function boot() {
+  await app.connect();
+  if (!app.getHostCapabilities()?.serverTools)
+    throw Error("Host 尚未提供 MCP 工具能力");
+  sources = (await call("review_sources")).repositories;
+  repositoryId = sources[0]?.id || "";
+  sessions = (await call("review_list")).comparisons;
+  try {
+    const h = await call("host_versions_list");
+    hostResources = h.resources;
+    hostWritable = h.writable;
+    resourceId = h.resources[0]?.id || "";
+  } catch {
+    /* Optional negotiated Host capability. */
+  }
+  if (sessions[0]) await loadReview(sessions[0].id);
+  else render();
+}
+void boot().catch((error) => {
+  root.innerHTML = `<div class="error-box"><h2>尚未连接审阅服务</h2><p>${e(error.message)}</p><p class="muted">请从 OpenMuse 的应用入口打开已安装插件，并确认 Desktop 在线。</p></div>`;
+});

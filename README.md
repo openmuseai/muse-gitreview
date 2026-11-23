@@ -5,7 +5,7 @@ OpenMuse 的独立 MCP / MCP Apps 插件。用同一审阅界面查看仓库工�
 - `src/`：公开合同、Git / MR 来源、持久审阅状态与独立 MCP 服务。
 - `web/`：共享高亮、统一 / 并排 Diff、全文、意见与文件版本管理。
 - `docs/releases/0.1.0/`：产品、选型、设计、用例、Muse-CI 运行与端到端证据。
-- `spikes/`：此前选型研究，非发布入口。
+此前选型研究保留在 Muse-Plugin-Ecosystem/plugins/repository-review/spikes；不复制到发布工程。
 
 `npm ci && npm test && npm run typecheck && npm run pack`。
 
