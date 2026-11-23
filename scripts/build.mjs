@@ -26,7 +26,7 @@ await writeFile(
   JSON.stringify(
     {
       schema: "openmuse.review-build/1",
-      version: "0.1.0",
+      version: "0.2.0",
       uiSha256: createHash("sha256").update(html).digest("hex"),
       bytes: Buffer.byteLength(html),
       selfContained: true,

@@ -6,3 +6,4 @@ dist/
 .muse-project-*/versions/
 .muse-project-*/inputs/
 .muse-project-*/outputs/
+.muse-project-*/INDEX.json

@@ -8,7 +8,7 @@ import {
   StreamableHTTPClientTransport,
 } from "@modelcontextprotocol/client";
 const token = (await readFile(".data/backend.token", "utf8")).trim(),
-  client = new Client({ name: "local-web-inspection", version: "0.1.0" });
+  client = new Client({ name: "local-web-inspection", version: "0.2.0" });
 await client.connect(
   new StreamableHTTPClientTransport(new URL("http://127.0.0.1:4191/mcp"), {
     requestInit: { headers: { authorization: "Bearer " + token } },

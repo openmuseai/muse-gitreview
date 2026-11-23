@@ -29,7 +29,7 @@ const manifest = {
   manifest_version: "0.3",
   name: "repository-review",
   display_name: "Repository Review",
-  version: "0.1.0",
+  version: "0.2.0",
   description:
     "Shared highlighted repository and file version review for OpenMuse Desktop and paired Mobile.",
   author: { name: "OpenMuse contributors" },
@@ -106,12 +106,12 @@ const bytes = await zip.generateAsync({
     compression: "DEFLATE",
   }),
   sha = (b) => createHash("sha256").update(b).digest("hex");
-await writeFile("dist/repository-review-0.1.0.mcpb", bytes);
+await writeFile("dist/repository-review-0.2.0.mcpb", bytes);
 const release = {
   profile: "openmuse.installed-app/1",
   status: "acceptance-candidate",
   pluginId: "io.openmuse.repository-review",
-  version: "0.1.0",
+  version: "0.2.0",
   uiResourceUri: "ui://repository-review/main",
   uiDigest: sha(await readFile("dist/index.html")),
   packageDigest: sha(bytes),
@@ -126,7 +126,7 @@ await writeFile(
 );
 console.log(
   JSON.stringify({
-    package: "dist/repository-review-0.1.0.mcpb",
+    package: "dist/repository-review-0.2.0.mcpb",
     bytes: bytes.length,
     sha256: sha(bytes),
     marketApproved: false,

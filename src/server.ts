@@ -4,10 +4,18 @@ import { readFile } from "node:fs/promises";
 import { comparisonSchema, publicContract } from "./contract.ts";
 import { ReviewStore } from "./store.ts";
 import { RepositoryProvider } from "./repository.ts";
+import { viewerSnapshot } from "./viewer.ts";
+import {
+  viewerResources as resourcesFor,
+  saveViewerResource,
+  type ViewerSnapshot,
+} from "./viewer-resources.ts";
 
 export const uri = "ui://repository-review/main";
 const uuid = z.string().uuid(),
   filePath = z.string().min(1).max(1024);
+// HTTP transport constructs a server per stateless request. Pinned resources
+// must survive that boundary so resources/list and resources/read see the same document.
 const compareInput = z
   .object({
     repositoryId: z.string().min(1).max(100),
@@ -23,7 +31,7 @@ export function buildServer(
   html: () => Promise<string>,
 ) {
   const server = new McpServer(
-    { name: "io.openmuse.repository-review", version: "0.1.0" },
+    { name: "io.openmuse.repository-review", version: "0.2.0" },
     { capabilities: { tools: {}, resources: {} } },
   );
   server.registerResource(
@@ -124,6 +132,42 @@ export function buildServer(
     "Open externally supplied Host versions or provider patches; never resolves arbitrary filesystem paths.",
   );
   register("review_list", z.object({}).strict(), () => store.list());
+  const viewerResources = resourcesFor(store);
+  const registered = new Set<string>();
+  const registerViewer = (snapshot: ViewerSnapshot) => {
+    if (registered.has(snapshot.uri)) return;
+    server.registerResource(
+      snapshot.name,
+      snapshot.uri,
+      { mimeType: snapshot.mimeType, _meta: { sha256: snapshot.sha256 } },
+      async () => ({
+        contents: [
+          {
+            uri: snapshot.uri,
+            mimeType: snapshot.mimeType,
+            text: snapshot.text,
+          },
+        ],
+      }),
+    );
+    registered.add(snapshot.uri);
+  };
+  for (const snapshot of viewerResources.values()) registerViewer(snapshot);
+  register(
+    "review_viewer",
+    z.object({ comparisonId: uuid }).strict(),
+    async (a) => {
+      const snapshot = await viewerSnapshot(store, a.comparisonId, provider);
+      await saveViewerResource(store, snapshot);
+      registerViewer(snapshot);
+      return {
+        uri: snapshot.uri,
+        sha256: snapshot.sha256,
+        name: snapshot.name,
+        mimeType: snapshot.mimeType,
+      };
+    },
+  );
   register(
     "review_read",
     z.object({ comparisonId: uuid, path: filePath.optional() }).strict(),

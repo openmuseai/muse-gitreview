@@ -96,6 +96,7 @@ export const publicContract = {
         list: "review_list",
         annotate: "review_change",
         export: "review_export",
+        openFileViewer: "review_viewer",
       },
       tools: [
         "review_sources",
@@ -107,6 +108,7 @@ export const publicContract = {
         "review_list",
         "review_change",
         "review_export",
+        "review_viewer",
       ],
       semantics:
         "Granted repository sources and immutable Host-supplied snapshots; attributed local review. Host remains the file-version authority. No platform approval, merge or arbitrary shell.",

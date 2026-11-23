@@ -3,7 +3,7 @@ import { buildHunks, pairedRows, type DiffLine } from "../src/diff-model.ts";
 import type { ChangeFile } from "../src/contract.ts";
 import { escape as e, tokenize, lineHtml } from "./highlight.ts";
 
-const app = new App({ name: "Repository Review", version: "0.1.0" }, {});
+const app = new App({ name: "Repository Review", version: "0.2.0" }, {});
 const root = document.querySelector<HTMLElement>("#app")!,
   dialog = document.querySelector<HTMLDialogElement>("#dialog")!;
 let sources: any[] = [],
@@ -26,6 +26,7 @@ let hostResources: any[] = [],
   beforeVersion = "",
   afterVersion = "",
   current: any = null;
+const collapsedDirectories = new Set<string>();
 const statusNames: Record<string, string> = {
   added: "A",
   deleted: "D",
@@ -99,7 +100,26 @@ function sourceForm() {
   return `<div class="sources"><label><span class="sr-only">仓库</span><select data-field="repositoryId" aria-label="仓库">${sources.map((r) => option(r.id, r.title, repositoryId)).join("")}</select></label><select data-field="kind" aria-label="比较来源">${(s?.sources || []).map((k: string) => option(k, ({ workspace: "工作区 · 当前未提交", staged: "暂存区", branch: "分支比较", commit: "提交比较", mr: "MR / Pull Request" } as any)[k], kind)).join("")}</select>${kind === "branch" ? `<label><small>基准分支</small><input data-field="baseRef" aria-label="基准分支" value="${e(baseRef)}"></label>` : ""}${["branch", "commit"].includes(kind) ? `<label><small>${kind === "commit" ? "提交 SHA / 引用" : "目标分支"}</small><input data-field="headRef" aria-label="目标引用" value="${e(headRef)}"></label>` : ""}${kind === "mr" ? `<label><small>MR 编号</small><input type="number" min="1" data-field="mrNumber" aria-label="MR 编号" value="${e(mrNumber)}"></label>` : ""}<button class="primary" data-action="compare">读取真实变更</button><button data-action="history">浏览提交历史</button></div>`;
 }
 function fileList() {
-  return `<ul class="files">${(review?.files || []).map((f: any) => `<li><button class="file-button ${file?.path === f.path ? "active" : ""}" data-action="file" data-path="${e(f.path)}" title="${e(f.path)}"><span class="badge ${e(f.status)}">${statusNames[f.status] || "M"}</span><span class="file-name">${e(f.path.split("/").pop())}<span class="file-directory">${e(f.path.includes("/") ? f.path.slice(0, f.path.lastIndexOf("/")) : "根目录")}</span></span><span aria-label="${review.viewed.includes(f.path) ? "已阅" : "未阅"}">${review.viewed.includes(f.path) ? "已" : ""}</span></button></li>`).join("")}</ul>`;
+  const seen = new Set<string>();
+  return `<ul class="files git-tree">${[...(review?.files || [])]
+    .sort((a, b) => a.path.localeCompare(b.path))
+    .map((f: any) => {
+      const parts = f.path.split("/");
+      let parents = "";
+      for (let i = 0; i < parts.length - 1; i++) {
+        const key = parts.slice(0, i + 1).join("/");
+        if (!seen.has(key)) {
+          seen.add(key);
+          parents += `<li><button class="tree-directory" data-action="folder" data-path="${e(key)}" aria-expanded="${!collapsedDirectories.has(key)}" style="padding-left:${8 + i * 12}px">${collapsedDirectories.has(key) ? "›" : "⌄"} ${e(parts[i])}</button></li>`;
+        }
+        if (collapsedDirectories.has(key)) return parents;
+      }
+      return (
+        parents +
+        `<li><button style="padding-left:${8 + (parts.length - 1) * 12}px" class="file-button ${file?.path === f.path ? "active" : ""}" data-action="file" data-path="${e(f.path)}" title="${e(f.path)}"><span class="badge ${e(f.status)}">${statusNames[f.status] || "M"}</span><span class="file-name">${e(parts.at(-1))}</span><span aria-label="${review.viewed.includes(f.path) ? "已阅" : "未阅"}">${review.viewed.includes(f.path) ? "✓" : ""}</span></button></li>`
+      );
+    })
+    .join("")}</ul>`;
 }
 function render() {
   root.innerHTML = `<header class="top"><div class="brand"><span class="brand-mark" aria-hidden="true">↔</span><div><h1>Repository Review</h1><small>版本、变更与审阅 · OpenMuse</small></div></div><div class="top-actions"><button class="${mode === "diff" ? "active" : ""}" data-action="diff-mode">变更</button><button class="${mode === "versions" ? "active" : ""}" data-action="versions-mode">文件版本</button><button class="quiet" data-action="source">来源</button></div></header><div class="workspace"><aside class="sidebar"><span class="label">比较来源</span>${sourceForm()}<div class="section-heading"><h3>变更文件</h3><small>${review?.fileCount || 0}</small></div>${fileList()}<div class="section-heading"><h3>最近审阅</h3></div>${sessions
@@ -115,7 +135,7 @@ function render() {
 function diffView() {
   if (!review)
     return `<div class="empty"><span class="label">YOUR CHANGESET, IN FOCUS</span><h2>看清每一处变更。</h2><p>选择已授权仓库的工作区、分支、提交或 MR。代码与文档在同一工作台查看；文件历史由 OpenMuse 管理。</p><button class="primary" data-action="source">选择来源并开始</button></div>`;
-  return `<div class="comparison-head"><div><h2>${e(review.title)}</h2><p><span class="status-pill">${e(decisionNames[review.decision])}</span> <small>${review.fileCount} 个文件 · 已阅 ${review.viewed.length} · ${review.noteCount} 条意见</small></p></div><div class="digest">${e(review.source.kind)} · ${e(review.digest.slice(0, 12))}<br>${e((review.source.headSha || review.source.headRef || "").slice(0, 12))}</div></div>${review.incomplete ? '<div class="notice">来源存在缺失或超出读取预算的文件。本快照不能作为完整审阅通过。</div>' : ""}<div class="toolbar"><div class="segment" role="group" aria-label="查看模式"><button class="${view === "unified" ? "active" : ""}" data-action="view" data-view="unified">统一 Diff</button><button class="${view === "split" ? "active" : ""}" data-action="view" data-view="split">并排 Diff</button><button class="${view === "before" ? "active" : ""}" data-action="view" data-view="before">原版本</button><button class="${view === "after" ? "active" : ""}" data-action="view" data-view="after">新版本</button></div><button class="quiet" data-action="export">审阅回执</button><select class="mobile-files" data-field="file" aria-label="变更文件">${review.files.map((f: any) => option(f.path, `${statusNames[f.status] || "M"}  ${f.path}${review.viewed.includes(f.path) ? "  已" : ""}`, file?.path || "")).join("")}</select></div>${file ? fileView() : `<div class="empty"><h2>没有变更</h2><p>所选来源与基准一致。可以选择其他分支、提交或文件版本。</p></div>`}${reviewPanel()}`;
+  return `<div class="comparison-head"><div><h2>${e(review.title)}</h2><p><span class="status-pill">${e(decisionNames[review.decision])}</span> <small>${review.fileCount} 个文件 · 已阅 ${review.viewed.length} · ${review.noteCount} 条意见</small></p></div><div class="digest">${e(review.source.kind)} · ${e(review.digest.slice(0, 12))}<br>${e((review.source.headSha || review.source.headRef || "").slice(0, 12))}</div></div>${review.incomplete ? '<div class="notice">来源存在缺失或超出读取预算的文件。本快照不能作为完整审阅通过。</div>' : ""}<div class="toolbar"><div class="segment" role="group" aria-label="查看模式"><button class="${view === "unified" ? "active" : ""}" data-action="view" data-view="unified">统一 Diff</button><button class="${view === "split" ? "active" : ""}" data-action="view" data-view="split">并排 Diff</button><button class="${view === "before" ? "active" : ""}" data-action="view" data-view="before">原版本</button><button class="${view === "after" ? "active" : ""}" data-action="view" data-view="after">新版本</button></div><button data-action="native-viewer">原生 Diff / 代码浏览</button><button class="quiet" data-action="export">审阅回执</button><select class="mobile-files" data-field="file" aria-label="变更文件">${review.files.map((f: any) => option(f.path, `${statusNames[f.status] || "M"}  ${f.path}${review.viewed.includes(f.path) ? "  已" : ""}`, file?.path || "")).join("")}</select></div>${file ? fileView() : `<div class="empty"><h2>没有变更</h2><p>所选来源与基准一致。可以选择其他分支、提交或文件版本。</p></div>`}${reviewPanel()}`;
 }
 function fileView() {
   const f = file!,
@@ -488,6 +508,13 @@ async function click(event: MouseEvent) {
     return;
   }
   await action(async () => {
+    if (a === "folder") {
+      const path = button.dataset.path!;
+      collapsedDirectories.has(path)
+        ? collapsedDirectories.delete(path)
+        : collapsedDirectories.add(path);
+      render();
+    }
     if (a === "compare") {
       dialog.close();
       const result = await call("repository_compare", {
@@ -537,6 +564,19 @@ async function click(event: MouseEvent) {
       modal(
         `<h2>审阅回执</h2><p class="version-meta">可由 Muse-CI 等调用方通过 review_export 获取。</p><pre class="full-source"><code>${e(JSON.stringify(receipt, null, 2))}</code></pre><button data-action="close">关闭</button>`,
       );
+    }
+    if (a === "native-viewer") {
+      const snapshot = await call("review_viewer", { comparisonId: review.id });
+      const key =
+        btoa(snapshot.uri)
+          .replaceAll("+", "-")
+          .replaceAll("/", "_")
+          .replaceAll("=", "") +
+        "." +
+        snapshot.sha256;
+      await app.openLink({
+        url: "mcp-resource://io.openmuse.repository-review/" + key,
+      });
     }
     if (a === "history") {
       const history = await call("repository_history", { repositoryId });

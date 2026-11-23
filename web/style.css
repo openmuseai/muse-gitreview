@@ -763,3 +763,29 @@ dialog .row {
     min-height: 44px;
   }
 }
+/* Compact Git tree: one path segment per row, no repeated directory captions. */
+.git-tree .file-button {
+  min-height: 30px;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  gap: 6px;
+  border-radius: 0;
+}
+.git-tree .file-name {
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tree-directory {
+  min-height: 28px;
+  display: flex;
+  align-items: center;
+  font-size: 13px;
+  color: var(--muted);
+}
+@media (pointer: coarse) {
+  .git-tree .file-button {
+    min-height: 44px;
+  }
+}

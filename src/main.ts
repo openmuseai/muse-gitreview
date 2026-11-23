@@ -7,6 +7,7 @@ import { z } from "zod";
 import { ReviewStore } from "./store.ts";
 import { RepositoryProvider } from "./repository.ts";
 import { buildServer } from "./server.ts";
+import { loadViewerResources } from "./viewer-resources.ts";
 
 const config = z
   .object({
@@ -40,6 +41,7 @@ const config = z
   );
 const store = new ReviewStore(config.dataDirectory, config.actor);
 await store.load();
+await loadViewerResources(store);
 const provider = new RepositoryProvider(config.repositories),
   html = () => readFile(new URL("../dist/index.html", import.meta.url), "utf8");
 const make = () => buildServer(store, provider, html);

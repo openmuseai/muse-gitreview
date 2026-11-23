@@ -5,7 +5,7 @@ import {
 const frame = document.querySelector<HTMLIFrameElement>("iframe")!;
 const bridge = new AppBridge(
   null,
-  { name: "Repository Review local web inspection", version: "0.1.0" },
+  { name: "Repository Review local web inspection", version: "0.2.0" },
   { serverTools: {} },
 );
 bridge.oncalltool = async (params) => {
