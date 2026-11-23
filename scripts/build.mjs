@@ -1,0 +1,11 @@
+import {build} from 'esbuild';
+import {mkdir,readFile,writeFile} from 'node:fs/promises';
+import {createHash} from 'node:crypto';
+await mkdir('dist',{recursive:true});
+const result=await build({entryPoints:['web/main.ts'],bundle:true,format:'iife',target:'es2022',write:false,minify:true});
+const script=result.outputFiles[0].text.replace(/<\/script/gi,'<\\/script');
+const css=await readFile('web/style.css','utf8');
+const html=(await readFile('web/index.html','utf8')).replace('/* APPLICATION_STYLES */',css).replace('/* APPLICATION_SCRIPT */',script);
+await writeFile('dist/index.html',html);
+await writeFile('dist/integrity.json',JSON.stringify({schema:'openmuse.review-build/1',version:'0.1.0',uiSha256:createHash('sha256').update(html).digest('hex'),bytes:Buffer.byteLength(html),selfContained:true},null,2)+'\n');
+console.log(JSON.stringify({bytes:Buffer.byteLength(html),sha256:createHash('sha256').update(html).digest('hex')}));
