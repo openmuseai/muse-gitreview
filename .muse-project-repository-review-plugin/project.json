@@ -1,0 +1,39 @@
+{
+  "schema": "openmuse.project/1",
+  "id": "repository-review-plugin",
+  "title": "Repository Review · 通用仓库审阅",
+  "goal": "",
+  "repositories": [
+    {
+      "id": "main",
+      "title": "Repository Review · 通用仓库审阅",
+      "path": ".",
+      "baseBranch": "main"
+    }
+  ],
+  "defaults": {
+    "budget": 50,
+    "timeout": 20,
+    "retries": 0,
+    "skills": []
+  },
+  "skillsDirectory": "skills",
+  "standardsDirectory": "standards",
+  "checks": {
+    "implementation": {
+      "executable": "npm",
+      "args": [
+        "run",
+        "typecheck"
+      ],
+      "timeoutSeconds": 180
+    },
+    "feature-report": {
+      "executable": "npm",
+      "args": [
+        "test"
+      ],
+      "timeoutSeconds": 180
+    }
+  }
+}
