@@ -1,0 +1,50 @@
+[
+  {
+    "file": "ACCEPTANCE.zh-CN.md",
+    "sha256": "59cc1929e156e1965b5d98db7ce30f495fc2914effc8d8e41623fe46508c27c4"
+  },
+  {
+    "file": "ci-final-execution.json",
+    "sha256": "a3cd8b4bc00b442e2a90e4ca7a6fb6c610fe403db9bb68b5f6880454d8813f5b"
+  },
+  {
+    "file": "mcp-native-resource.json",
+    "sha256": "d409fd488651f1ccd8ee131878d58db6bb79f4ba220c718e3906b829b45955a1"
+  },
+  {
+    "file": "native-viewer-tests.txt",
+    "sha256": "1792a9f423051666d86d95c78f409d12d3fa9a3d580aca49556cb7b1ca5c5fc2"
+  },
+  {
+    "file": "pkm110-login-ready-mirror-input-blocked.png",
+    "sha256": "5503fa5d433d915436f472dc807f9cbb9ab08a62cbcd31e5a1799c529e45d7f4"
+  },
+  {
+    "file": "plp110-native-code-folded-context.png",
+    "sha256": "29eebe57b1045724a2a1492f26319c3752357feb7003296f2abcbfd6b95baad2"
+  },
+  {
+    "file": "plp110-native-document.png",
+    "sha256": "d5a4d9cff6c1b439ed16fbfe221c1ac29cc8f473132e7acaf9c8491a3d5b4d3a"
+  },
+  {
+    "file": "plp110-native-expanded-context.png",
+    "sha256": "66e66d9ef9e4606daae958f4438baec7c29049d8855419d14cb3a3d08ab3aa88"
+  },
+  {
+    "file": "plp110-native-line-102.png",
+    "sha256": "53dd2306fb984062486313c87568bbebf89bc833281d8fa35626be54ec7e7169"
+  },
+  {
+    "file": "plp110-native-split-diff.png",
+    "sha256": "1d630902ef8150cbe16c6aeb09cdaa7d68377c935e39f77e902d6404c5ef5e4b"
+  },
+  {
+    "file": "plugin-tests.txt",
+    "sha256": "80a48ac588b658aa00d404de2a94d3e8347a22f2e916d6595721182fdb41af68"
+  },
+  {
+    "file": "smartdoc-acceptance-receipt.json",
+    "sha256": "250d9522cff995155468ac94dbf5ec4f363761469e29af8b915f37f7ec5b132d"
+  }
+]

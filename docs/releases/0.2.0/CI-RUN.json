@@ -1,0 +1,70 @@
+{
+  "version": "0.2.0",
+  "managedProjectId": "repository-review-plugin",
+  "versionProjectId": "71e2c0fc8e3bed84ad4097adb1f26774",
+  "children": [
+    {
+      "key": "native-viewer",
+      "title": "NATIVE-02 · Open File Viewer 原生集成",
+      "scope": "将独立插件比较快照作为摘要固定的 MCP 数据资源，交给 Open File Viewer，复用已有原生高亮与浏览能力。",
+      "cases": "Host 实现与公开合同分列；真实能力发现；权限/会话撤回；固定版本引用。",
+      "id": "db6aa9441766e38bb979a0c5a0225f3a"
+    },
+    {
+      "key": "compact-tree",
+      "title": "TREE-02 · 紧凑 Git Tree 与折叠",
+      "scope": "紧凑目录树、单行文件名、目录折叠、展开屏双栏与外屏抽屉。",
+      "cases": "TS/JSON/Dart 等高亮；行号/修改统计；Unicode/空文件/无换行；二进制/截断提示；源码 HTML 不执行。",
+      "id": "e856f927f427a505be790dff9355dc0c"
+    },
+    {
+      "key": "snapshot-navigation",
+      "title": "NAV-02 · 版本固定的代码浏览与跳转",
+      "scope": "原生 Tree-sitter 高亮、历史快照全文、Diff 行定位、行号跳转、快照文本搜索、展开折叠未变更内容。",
+      "cases": "同一公开合同被 CI 和独立消费者调用；真实 MR 固定 SHA 与分页；来源权限；比较更新撤销旧已阅。",
+      "id": "b5ac9e187aa918a7d2d7d95a65a0284e"
+    },
+    {
+      "key": "foldable-acceptance",
+      "title": "E2E-02 · Desktop 与 PLP110 折叠屏验收",
+      "scope": "独立 MCP 合同客户端、包摘要、Desktop/当前连接 Android PLP110 普通 App 国内公网路径，验收真正高亮增删改。",
+      "cases": "应用 Tab 安装与打开；展开/外屏；真实仓库 Diff；已阅/意见归属；SmartDoc 用例/报告/MR 归档。",
+      "id": "83dabc3f5fbd7a76b88afdabdce3ee3a"
+    }
+  ],
+  "implementationReady": true,
+  "formalRelease": false,
+  "automaticChecksExecuted": true,
+  "automaticCheckNodeCount": 27,
+  "deviceAcceptanceComplete": false,
+  "acceptance": {
+    "PLP110Expanded": "passed-on-112361",
+    "PLP110Outer": "not-run-device-disconnected",
+    "PKM110Narrow": "logged-in-validation-in-progress",
+    "Desktop": "native-resource-opened-before-final-minor-build; final interaction in progress"
+  },
+  "candidate": {
+    "profile": "openmuse.installed-app/1",
+    "status": "acceptance-candidate",
+    "pluginId": "io.openmuse.repository-review",
+    "version": "0.2.0",
+    "uiResourceUri": "ui://repository-review/main",
+    "uiDigest": "51ace1b1cb3a0b191be45ca0e7842d5101f3e989129659329f3602170ea72bf8",
+    "packageDigest": "80d8b6f75a146cce9cb93adcb1847ff97f7c6e3fa95278189286441a9860958d",
+    "executionModes": [
+      "local-stdio",
+      "remote-mcp"
+    ],
+    "remoteRequires": [
+      "trusted-backend-binding",
+      "serverTools"
+    ],
+    "targets": [
+      "darwin",
+      "android",
+      "ios"
+    ],
+    "marketApproved": false
+  },
+  "acceptanceDocumentId": "ac37e53f-8729-4d02-831b-7de60a05cce5"
+}

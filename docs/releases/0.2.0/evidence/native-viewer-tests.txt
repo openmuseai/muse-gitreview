@@ -1,0 +1,17 @@
+00:00 +0: loading /Users/mac/src/openmuse-io/Muse-Client/packages/openmuse_file_viewer_flutter/test/scrollbars_test.dart
+00:00 +0: /Users/mac/src/openmuse-io/Muse-Client/packages/openmuse_file_viewer_flutter/test/syntax_test.dart: bundled native Tree-sitter parses Dart and preserves UTF-16 source
+00:00 +1: /Users/mac/src/openmuse-io/Muse-Client/packages/openmuse_file_viewer_flutter/test/syntax_test.dart: bundled native Tree-sitter parses Dart and preserves UTF-16 source
+00:00 +2: /Users/mac/src/openmuse-io/Muse-Client/packages/openmuse_file_viewer_flutter/test/syntax_test.dart: bundled native Tree-sitter parses Dart and preserves UTF-16 source
+00:00 +3: /Users/mac/src/openmuse-io/Muse-Client/packages/openmuse_file_viewer_flutter/test/syntax_test.dart: bundled native Tree-sitter parses Dart and preserves UTF-16 source
+00:00 +4: /Users/mac/src/openmuse-io/Muse-Client/packages/openmuse_file_viewer_flutter/test/syntax_test.dart: bundled native Tree-sitter parses Dart and preserves UTF-16 source
+00:01 +5: /Users/mac/src/openmuse-io/Muse-Client/packages/openmuse_file_viewer_flutter/test/large_workspace_highlight_test.dart: real Mobile workspace entry keeps syntax highlighting
+00:01 +6: /Users/mac/src/openmuse-io/Muse-Client/packages/openmuse_file_viewer_flutter/test/large_workspace_highlight_test.dart: real Mobile workspace entry keeps syntax highlighting
+Workspace syntax: 74332 UTF-16 units, 24817 captures
+00:01 +7: /Users/mac/src/openmuse-io/Muse-Client/packages/openmuse_file_viewer_flutter/test/large_workspace_highlight_test.dart: real Mobile workspace entry keeps syntax highlighting
+00:01 +8: /Users/mac/src/openmuse-io/Muse-Client/packages/openmuse_file_viewer_flutter/test/large_workspace_highlight_test.dart: real Mobile workspace entry keeps syntax highlighting
+00:01 +9: /Users/mac/src/openmuse-io/Muse-Client/packages/openmuse_file_viewer_flutter/test/large_workspace_highlight_test.dart: real Mobile workspace entry keeps syntax highlighting
+00:01 +10: /Users/mac/src/openmuse-io/Muse-Client/packages/openmuse_file_viewer_flutter/test/code_navigation_test.dart: actual glyph tap resolves symbol, selects target and preserves source scroll
+00:01 +11: /Users/mac/src/openmuse-io/Muse-Client/packages/openmuse_file_viewer_flutter/test/scrollbars_test.dart: TargetPlatform.macOS keeps both thumbs in the viewport and draggable
+00:01 +12: /Users/mac/src/openmuse-io/Muse-Client/packages/openmuse_file_viewer_flutter/test/large_workspace_highlight_test.dart: dense code beyond the former capture cap retains colors and text
+00:01 +13: /Users/mac/src/openmuse-io/Muse-Client/packages/openmuse_file_viewer_flutter/test/large_workspace_highlight_test.dart: dense code beyond the former capture cap retains colors and text
+00:02 +14: All tests passed!

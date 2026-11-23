@@ -1,0 +1,28 @@
+
+> @openmuse/repository-review@0.2.0 test
+> tsx --test test/*.test.ts
+
+✔ portable MCPB serves the exact self-contained UI through an independent stdio client (470.69825ms)
+✔ large identical source is unchanged, not full replacement (2.791084ms)
+✔ native patch retains absolute old/new line anchors (0.858625ms)
+✔ word changes and split rows distinguish inserts and replacements (0.240625ms)
+✔ empty files, Unicode and no newline remain exact (0.107208ms)
+✔ unavailable and binary content are explicitly incomplete text views (0.086209ms)
+✔ malformed or missing patch bodies cannot become a completed review (13.481833ms)
+✔ syntax tokens are colored and source HTML never executes (74.867583ms)
+✔ Desktop, Mobile and backend languages all keep syntax tokens (640.127625ms)
+✔ durable hash-bound review, replay, notes, resolution and receipt (33.581458ms)
+Switched to a new branch 'feature'
+✔ Git providers acquire actual workspace, staged, branch, commit and non-code snapshots (419.723416ms)
+✔ independent MCP consumer discovers UI and shares review contract without CI imports (25.617042ms)
+✔ native viewer document pins exact snapshots and absolute diff anchors without executable instructions (12.787667ms)
+✔ MCP data resources survive stateless server reconstruction (109.906666ms)
+✔ frozen native resources survive process restart and reject tampered disk bytes (10.130208ms)
+ℹ tests 15
+ℹ suites 0
+ℹ pass 15
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1551.628542
