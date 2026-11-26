@@ -789,3 +789,30 @@ dialog .row {
     min-height: 44px;
   }
 }
+
+/* Explicit plugin-owned Desktop split presentation; standalone UI is unchanged. */
+.review-desktop-navigation .git-tree{gap:0}
+.review-desktop-navigation .git-tree .tree-directory,.review-desktop-navigation .git-tree .file-button{width:100%;min-height:28px;height:28px;margin:0;padding-top:0;padding-bottom:0;border:0;border-radius:0;background:transparent;text-align:left;font-size:12px}
+.review-desktop-navigation .git-tree .file-name{font-size:12px}
+.review-desktop-navigation .git-tree .file-button.active{background:#e4ece6;color:#326451}
+.review-desktop-navigation .git-tree button:hover{background:#e4ece6}
+.review-desktop-navigation .section-heading{margin:18px 0 7px}
+
+.review-desktop-navigation body{background:#f7f8f7;color:#252d29}.review-desktop-navigation .top,.review-desktop-navigation .workspace>.content{display:none}.review-desktop-navigation .workspace{display:block;height:100dvh;min-height:0}.review-desktop-navigation .workspace>.sidebar{display:block;width:100%;max-width:none;border:0;padding:12px;background:#f7f8f7}.review-desktop-navigation .sidebar .label{font-size:10px;letter-spacing:.5px}.review-desktop-navigation .sources{gap:7px}.review-desktop-navigation .sources select,.review-desktop-navigation .sources input,.review-desktop-navigation .sources button{font-size:12px;min-height:30px}.review-desktop-navigation .section-heading h3{font-size:11px}.review-desktop-workspace .workspace{grid-template-columns:minmax(0,1fr)}.review-desktop-workspace .workspace>.sidebar{display:none}.review-desktop-workspace .top .brand small{display:none}.review-desktop-workspace .top{min-height:38px;padding:8px 16px}.review-desktop-workspace .top h1{font-size:14px}
+
+/* Explicit host context wins over the operating-system appearance. */
+:root[data-host-theme="dark"] {color:#e0e8e2;background:#1b211e;--muted:#a5b3a8;--line:#333d36;--accent:#8fbea5;--green:#a2c99c;--red:#efa4a9}
+[data-host-theme="dark"] body,[data-host-theme="dark"] .top,[data-host-theme="dark"] .content,[data-host-theme="dark"] .sidebar,[data-host-theme="dark"] .panel,[data-host-theme="dark"] dialog {background:#1b211e;color:#e0e8e2}
+[data-host-theme="dark"] button,[data-host-theme="dark"] input,[data-host-theme="dark"] select,[data-host-theme="dark"] textarea {background:#202723;color:#e0e8e2}
+[data-host-theme="dark"] button.primary {background:#326451;color:#fff}
+[data-host-theme="dark"] .git-tree button:hover,[data-host-theme="dark"] .git-tree .file-button.active {background:#2c3d32;color:#a7d0b6}
+[data-host-theme="dark"] .code-table,[data-host-theme="dark"] .line-neutral,[data-host-theme="dark"] .code-line {background:#1b211e;color:#e0e8e2}
+[data-host-theme="dark"] .review-desktop-navigation {background:#202723}
+.review-desktop-navigation[data-host-theme="dark"] body,.review-desktop-navigation[data-host-theme="dark"] .workspace>.sidebar {background:#202723;color:#e0e8e2}
+
+[data-host-theme="dark"] .toolbar,[data-host-theme="dark"] .diff-table .gutter,[data-host-theme="dark"] .diff-table .line-context,[data-host-theme="dark"] .full-source {background:#202723;color:#e0e8e2}
+[data-host-theme="dark"] .diff-table .line-add {background:#233b2b}
+[data-host-theme="dark"] .diff-table .line-delete {background:#452b2e}
+[data-host-theme="dark"] .diff-table .hunk td {background:#29343c;color:#aac5d2}
+[data-host-theme="dark"] .diff-table .word-change {background:#345b3a}
+[data-host-theme="dark"] .line-delete .word-change {background:#6a3d42}
