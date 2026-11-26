@@ -27,6 +27,64 @@ let hostResources: any[] = [],
   afterVersion = "",
   current: any = null;
 const collapsedDirectories = new Set<string>();
+let desktopPresentation = "",
+  desktopInput: Record<string, any> = {},
+  desktopReady = false,
+  desktopSequence = 0,
+  desktopLast = "";
+async function applyDesktopInput() {
+  const input = desktopInput._openmuse;
+  if (!input) return;
+  desktopPresentation =
+    input.presentation === "navigation" ? "navigation" : "workspace";
+  document.documentElement.classList.toggle(
+    "review-desktop-navigation",
+    desktopPresentation === "navigation",
+  );
+  document.documentElement.classList.toggle(
+    "review-desktop-workspace",
+    desktopPresentation === "workspace",
+  );
+  if (!desktopReady) return;
+  const selection = input.navigation || {},
+    key = JSON.stringify(selection);
+  if (key === desktopLast) return;
+  desktopLast = key;
+  const sequence = ++desktopSequence;
+  const deadline = Date.now() + 95000;
+  while (busy && sequence === desktopSequence && Date.now() < deadline)
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  if (sequence !== desktopSequence) return;
+  if (busy) throw Error("NAVIGATION_WAIT_TIMEOUT");
+  if (
+    typeof selection.repositoryId === "string" &&
+    sources.some((r) => r.id === selection.repositoryId)
+  )
+    repositoryId = selection.repositoryId;
+  if (["unified", "split", "before", "after"].includes(selection.view))
+    view = selection.view;
+  if (
+    selection.comparisonId &&
+    (review?.id !== selection.comparisonId || file?.path !== selection.path)
+  ) {
+    await loadReview(selection.comparisonId, selection.path || undefined);
+    if (sequence !== desktopSequence) return;
+  } else render();
+}
+async function publishDesktopSelection() {
+  if (desktopPresentation !== "navigation" || !desktopReady) return;
+  await call("openmuse_navigation_select", {
+    repositoryId,
+    comparisonId: review?.id || "",
+    path: file?.path || "",
+    view,
+  });
+}
+app.ontoolinput = (params) => {
+  desktopInput = params.arguments || {};
+  void applyDesktopInput().catch(() => toast("无法同步导航，请重试。", true));
+};
+
 const statusNames: Record<string, string> = {
   added: "A",
   deleted: "D",
@@ -91,6 +149,9 @@ async function action(fn: () => Promise<void>) {
     busy = false;
     root.classList.remove("busy");
     root.removeAttribute("aria-busy");
+    await publishDesktopSelection().catch(() =>
+      toast("无法同步导航，请重试。", true),
+    );
   }
 }
 const option = (value: string, label: string, selected: string) =>
@@ -297,17 +358,23 @@ function versionView() {
 function versionLabel(v: any) {
   return `${new Date(v.createdAt).toLocaleString()} · ${v.sha256.slice(0, 8)} · ${v.byteLength}B`;
 }
+let reviewLoadSequence = 0;
 async function loadReview(id: string, path?: string) {
-  review = await call("review_read", { comparisonId: id });
+  const sequence = ++reviewLoadSequence;
+  const nextReview = await call("review_read", { comparisonId: id });
   const selected =
-    path && review.files.some((f: any) => f.path === path)
+    path && nextReview.files.some((f: any) => f.path === path)
       ? path
-      : review.files[0]?.path;
-  file = selected
+      : nextReview.files[0]?.path;
+  const nextFile = selected
     ? (await call("review_read", { comparisonId: id, path: selected })).file
     : null;
+  const nextSessions = (await call("review_list")).comparisons;
+  if (sequence !== reviewLoadSequence) return;
+  review = nextReview;
+  file = nextFile;
+  sessions = nextSessions;
   page = 0;
-  sessions = (await call("review_list")).comparisons;
   render();
 }
 async function refreshVersions() {
@@ -689,8 +756,10 @@ async function boot() {
   } catch {
     /* Optional negotiated Host capability. */
   }
+  desktopReady = true;
   if (sessions[0]) await loadReview(sessions[0].id);
   else render();
+  await applyDesktopInput();
 }
 void boot().catch((error) => {
   root.innerHTML = `<div class="error-box"><h2>尚未连接审阅服务</h2><p>${e(error.message)}</p><p class="muted">请从 OpenMuse 的应用入口打开已安装插件，并确认 Desktop 在线。</p></div>`;

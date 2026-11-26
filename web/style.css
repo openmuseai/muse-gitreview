@@ -789,3 +789,6 @@ dialog .row {
     min-height: 44px;
   }
 }
+
+/* Explicit plugin-owned Desktop split presentation; standalone UI is unchanged. */
+.review-desktop-navigation body{background:#f7f8f7;color:#252d29}.review-desktop-navigation .top,.review-desktop-navigation .workspace>.content{display:none}.review-desktop-navigation .workspace{display:block;height:100dvh;min-height:0}.review-desktop-navigation .workspace>.sidebar{display:block;width:100%;max-width:none;border:0;padding:12px;background:#f7f8f7}.review-desktop-navigation .sidebar .label{font-size:10px;letter-spacing:.5px}.review-desktop-navigation .sources{gap:7px}.review-desktop-navigation .sources select,.review-desktop-navigation .sources input,.review-desktop-navigation .sources button{font-size:12px;min-height:30px}.review-desktop-navigation .section-heading h3{font-size:11px}.review-desktop-workspace .workspace{grid-template-columns:minmax(0,1fr)}.review-desktop-workspace .workspace>.sidebar{display:none}.review-desktop-workspace .top .brand small{display:none}.review-desktop-workspace .top{min-height:38px;padding:8px 16px}.review-desktop-workspace .top h1{font-size:14px}@media(prefers-color-scheme:dark){.review-desktop-navigation body,.review-desktop-navigation .workspace>.sidebar{background:#202723;color:#e0e8e2}}
