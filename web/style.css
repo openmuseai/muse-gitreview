@@ -791,4 +791,11 @@ dialog .row {
 }
 
 /* Explicit plugin-owned Desktop split presentation; standalone UI is unchanged. */
+.review-desktop-navigation .git-tree{gap:0}
+.review-desktop-navigation .git-tree .tree-directory,.review-desktop-navigation .git-tree .file-button{width:100%;min-height:28px;height:28px;margin:0;padding-top:0;padding-bottom:0;border:0;border-radius:0;background:transparent;text-align:left;font-size:12px}
+.review-desktop-navigation .git-tree .file-name{font-size:12px}
+.review-desktop-navigation .git-tree .file-button.active{background:#e4ece6;color:#326451}
+.review-desktop-navigation .git-tree button:hover{background:#e4ece6}
+.review-desktop-navigation .section-heading{margin:18px 0 7px}
+@media(prefers-color-scheme:dark){.review-desktop-navigation{--muted:#a5b3a8;--line:#333d36;--accent:#8fbea5}.review-desktop-navigation .sources select,.review-desktop-navigation .sources input,.review-desktop-navigation .sources button{background:#1b211e;color:#e0e8e2}.review-desktop-navigation .git-tree button:hover,.review-desktop-navigation .git-tree .file-button.active{background:#2c3d32;color:#8fbea5}}
 .review-desktop-navigation body{background:#f7f8f7;color:#252d29}.review-desktop-navigation .top,.review-desktop-navigation .workspace>.content{display:none}.review-desktop-navigation .workspace{display:block;height:100dvh;min-height:0}.review-desktop-navigation .workspace>.sidebar{display:block;width:100%;max-width:none;border:0;padding:12px;background:#f7f8f7}.review-desktop-navigation .sidebar .label{font-size:10px;letter-spacing:.5px}.review-desktop-navigation .sources{gap:7px}.review-desktop-navigation .sources select,.review-desktop-navigation .sources input,.review-desktop-navigation .sources button{font-size:12px;min-height:30px}.review-desktop-navigation .section-heading h3{font-size:11px}.review-desktop-workspace .workspace{grid-template-columns:minmax(0,1fr)}.review-desktop-workspace .workspace>.sidebar{display:none}.review-desktop-workspace .top .brand small{display:none}.review-desktop-workspace .top{min-height:38px;padding:8px 16px}.review-desktop-workspace .top h1{font-size:14px}@media(prefers-color-scheme:dark){.review-desktop-navigation body,.review-desktop-navigation .workspace>.sidebar{background:#202723;color:#e0e8e2}}
