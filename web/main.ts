@@ -4,6 +4,14 @@ import type { ChangeFile } from "../src/contract.ts";
 import { escape as e, tokenize, lineHtml } from "./highlight.ts";
 
 const app = new App({ name: "Repository Review", version: "0.2.0" }, {});
+function applyHostContext(context = app.getHostContext()) {
+  if (context?.theme) {
+    document.documentElement.dataset.hostTheme = context.theme;
+    document.documentElement.style.colorScheme = context.theme;
+  }
+  if (context?.locale) document.documentElement.lang = context.locale;
+}
+app.onhostcontextchanged = () => applyHostContext();
 const root = document.querySelector<HTMLElement>("#app")!,
   dialog = document.querySelector<HTMLDialogElement>("#dialog")!;
 let sources: any[] = [],
@@ -743,6 +751,7 @@ app.ontoolresult = (result) => {
 };
 async function boot() {
   await app.connect();
+  applyHostContext();
   if (!app.getHostCapabilities()?.serverTools)
     throw Error("Host 尚未提供 MCP 工具能力");
   sources = (await call("review_sources")).repositories;
