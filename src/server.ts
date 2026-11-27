@@ -102,6 +102,29 @@ export function buildServer(
     );
   register("review_sources", z.object({}).strict(), () => provider.list());
   register(
+    "repository_choices",
+    z
+      .object({
+        repositoryId: z.string().min(1).max(100),
+        kind: z.enum(["branch", "commit", "mr"]),
+      })
+      .strict(),
+    (a) => provider.choices(a.repositoryId, a.kind),
+  );
+  register(
+    "repository_tree",
+    z
+      .object({
+        repositoryId: z.string().min(1).max(100),
+        ref: z
+          .string()
+          .regex(/^[a-f0-9]{40}(?:[a-f0-9]{24})?$/)
+          .optional(),
+      })
+      .strict(),
+    (a) => provider.tree(a.repositoryId, a.ref),
+  );
+  register(
     "repository_history",
     z.object({ repositoryId: z.string(), path: filePath.optional() }).strict(),
     (a) => provider.history(a.repositoryId, a.path),
@@ -192,7 +215,31 @@ export function buildServer(
           .optional(),
       })
       .strict(),
-    (a) => store.change(a),
+    (a) =>
+      store.change(a, async (comparison, file) => {
+        const source = comparison.source;
+        if (
+          !source.repository ||
+          !["branch", "commit", "mr"].includes(source.kind)
+        )
+          throw Error("NOTE_ANCHOR_INVALID");
+        const read = async (ref: string | undefined, path: string) => {
+          if (!ref) throw Error("IMMUTABLE_REF_REQUIRED");
+          const result = await provider.read(source.repository!, ref, path);
+          if (result.binary || result.text === undefined)
+            throw Error("NOTE_ANCHOR_INVALID");
+          return result.text;
+        };
+        const [before, after] = await Promise.all([
+          file.status === "added"
+            ? ""
+            : read(source.baseRef, file.previousPath || file.path),
+          file.status === "deleted"
+            ? ""
+            : read(source.headSha || source.headRef, file.path),
+        ]);
+        return { ...file, before, after };
+      }),
     false,
     "Record attributed, hash-bound local review state. This is not code-platform approval or merge.",
   );

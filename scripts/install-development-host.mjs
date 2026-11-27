@@ -47,6 +47,16 @@ try {
 }
 const previous = list.find((app) => app.id === definition.id);
 if (previous?.owner) definition.owner = previous.owner;
+// Installer updates executable UI only; existing Host-issued grants stay scoped
+// to the same account and must not disappear during an otherwise safe update.
+for (const key of [
+  "hostCapabilities",
+  "hostResources",
+  "hostDirectorySources",
+  "hostRepositoryBindings",
+]) {
+  if (previous?.[key] !== undefined) definition[key] = previous[key];
+}
 let token;
 if (!previous?.owner) {
   const file = option("--credential-file");

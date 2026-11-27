@@ -95,6 +95,197 @@ export class RepositoryProvider {
       ),
     };
   }
+  private async github(repo: RepositoryConfig, endpoint: string): Promise<any> {
+    if (!repo.github) throw Error("MR_PROVIDER_NOT_CONFIGURED");
+    const token = (await readFile(repo.github.tokenFile, "utf8")).trim();
+    const url = `https://api.github.com/repos/${encodeURIComponent(repo.github.owner)}/${encodeURIComponent(repo.github.repository)}/${endpoint}`;
+    const res = await fetch(url, {
+      headers: {
+        authorization: "Bearer " + token,
+        accept: "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+      },
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!res.ok) throw Error("REPOSITORY_METADATA_UNAVAILABLE");
+    return res.json();
+  }
+  async choices(repositoryId: string, kind: "branch" | "commit" | "mr") {
+    const repo = this.repo(repositoryId);
+    if (kind === "branch") {
+      if (repo.github) {
+        const rows = await this.github(repo, "branches?per_page=100");
+        return {
+          repositoryId,
+          kind,
+          branches: rows.map((r: any) => ({ name: r.name, sha: r.commit.sha })),
+          limited: rows.length === 100,
+        };
+      }
+      const raw: string = await this.git(repo, [
+        "for-each-ref",
+        "--format=%(refname:short)%09%(objectname)",
+        "refs/heads",
+        "refs/remotes",
+      ]);
+      const branches = raw
+        .trim()
+        .split("\n")
+        .filter(Boolean)
+        .map((row) => {
+          const [name, sha] = row.split("\t");
+          return { name, sha };
+        });
+      return {
+        repositoryId,
+        kind,
+        branches: branches.slice(0, 100),
+        limited: branches.length > 100,
+      };
+    }
+    if (kind === "commit") {
+      const commits = repo.github
+        ? (await this.github(repo, "commits?per_page=40")).map((r: any) => ({
+            sha: r.sha,
+            title: r.commit.message.split("\n")[0],
+            at: r.commit.author.date,
+          }))
+        : (await this.history(repositoryId)).commits;
+      return { repositoryId, kind, commits, limited: commits.length === 40 };
+    }
+    const rows = await this.github(
+      repo,
+      "pulls?state=all&sort=updated&direction=desc&per_page=100",
+    );
+    return {
+      repositoryId,
+      kind,
+      mergeRequests: rows.map((r: any) => ({
+        number: r.number,
+        title: r.title,
+        state: r.merged_at ? "merged" : r.state,
+        base: r.base.ref,
+        head: r.head.ref,
+        sha: r.head.sha,
+      })),
+      limited: rows.length === 100,
+    };
+  }
+  private remoteFiles(rows: any[]): ChangeFile[] {
+    return rows.map((f) => ({
+      path: f.filename,
+      previousPath: f.previous_filename,
+      status:
+        f.status === "removed"
+          ? "deleted"
+          : f.status === "changed"
+            ? "modified"
+            : f.status,
+      patch: f.patch,
+      binary: false,
+      truncated: false,
+      patchUnavailable: !f.patch,
+    }));
+  }
+  private async remoteComparison(
+    repo: RepositoryConfig,
+    kind: "branch" | "commit",
+    baseRef: string | undefined,
+    headRef: string,
+  ): Promise<Comparison> {
+    const resolve = async (ref: string) =>
+      /^[a-f0-9]{40}(?:[a-f0-9]{24})?$/.test(ref)
+        ? ref
+        : (await this.github(repo, "commits/" + encodeURIComponent(ref))).sha;
+    let head: string, base: string | undefined, rows: any[];
+    if (kind === "commit") {
+      const commit = await this.github(
+        repo,
+        "commits/" + encodeURIComponent(headRef) + "?per_page=100",
+      );
+      head = commit.sha;
+      base = commit.parents[0]?.sha;
+      rows = [...commit.files];
+      if (rows.length === 100)
+        for (let page = 2; page <= 3; page++) {
+          const more = await this.github(
+            repo,
+            `commits/${head}?per_page=100&page=${page}`,
+          );
+          rows.push(...more.files);
+          if (more.files.length < 100) break;
+        }
+    } else {
+      [base, head] = await Promise.all([
+        resolve(baseRef || "main"),
+        resolve(headRef),
+      ]);
+      const compared = await this.github(repo, `compare/${base}...${head}`);
+      rows = compared.files;
+      base = compared.merge_base_commit.sha;
+    }
+    const files = this.remoteFiles(rows);
+    return {
+      schema: "openmuse.repository-review/1",
+      title: `${repo.title} · ${kind}`,
+      source: {
+        kind,
+        provider: "github",
+        repository: repo.id,
+        baseRef: base,
+        headRef: head,
+        headSha: head,
+      },
+      files,
+      incomplete: files.length >= 300 || files.some((f) => f.patchUnavailable),
+    };
+  }
+  async tree(repositoryId: string, ref?: string) {
+    const repo = this.repo(repositoryId);
+    if (repo.github) {
+      if (ref && !/^[a-f0-9]{40}(?:[a-f0-9]{24})?$/.test(ref))
+        throw Error("GIT_REF_INVALID");
+      const pinned = ref || (await this.ref(repo, "HEAD"));
+      const tree = await this.github(repo, `git/trees/${pinned}?recursive=1`);
+      const files: { path: string }[] = tree.tree.filter(
+        (entry: any) => entry.type === "blob" && entry.mode !== "120000",
+      );
+      return {
+        repositoryId,
+        ref: pinned,
+        truncated: !!tree.truncated || files.length > 5000,
+        files: files
+          .slice(0, 5000)
+          .map((entry) => ({ path: entry.path, status: "unchanged" })),
+      };
+    }
+    const pinned = await this.ref(repo, ref || "HEAD");
+    const output: string = await this.git(repo, [
+      "ls-tree",
+      "-rz",
+      "--full-tree",
+      pinned,
+    ]);
+    const paths = output
+      .split("\0")
+      .filter(Boolean)
+      .flatMap((entry) => {
+        const tab = entry.indexOf("\t");
+        const [mode, type] = entry.slice(0, tab).split(" ");
+        // Git links and symlinks are not ordinary readable snapshot files.
+        return tab >= 0 && type === "blob" && mode !== "120000"
+          ? [entry.slice(tab + 1)]
+          : [];
+      });
+    return {
+      repositoryId,
+      ref: pinned,
+      truncated: paths.length > 5000,
+      files: paths
+        .slice(0, 5000)
+        .map((path) => ({ path, status: "unchanged" })),
+    };
+  }
   async history(repoId: string, filePath?: string) {
     const repo = this.repo(repoId);
     if (filePath) this.validatePath(filePath);
@@ -211,6 +402,13 @@ export class RepositoryProvider {
   }): Promise<Comparison> {
     const repo = this.repo(a.repositoryId);
     if (a.kind === "mr") return this.mr(repo, a.number!);
+    if (repo.github && (a.kind === "branch" || a.kind === "commit"))
+      return this.remoteComparison(
+        repo,
+        a.kind,
+        a.baseRef,
+        a.headRef || "HEAD",
+      );
     const head = await this.ref(repo, a.headRef || "HEAD");
     const parents =
       a.kind === "commit" && !a.baseRef
@@ -223,7 +421,7 @@ export class RepositoryProvider {
     const emptyTree = createHash(head.length === 64 ? "sha256" : "sha1")
       .update("tree 0\0")
       .digest("hex");
-    const base =
+    let base =
       a.kind === "commit"
         ? rootCommit
           ? emptyTree
@@ -231,6 +429,8 @@ export class RepositoryProvider {
         : a.kind === "branch"
           ? await this.ref(repo, a.baseRef || "main")
           : head;
+    if (a.kind === "branch")
+      base = (await this.git(repo, ["merge-base", base, head])).trim();
     const args = rootCommit
       ? [
           "diff-tree",
