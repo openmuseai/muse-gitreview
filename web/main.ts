@@ -715,17 +715,17 @@ async function click(event: MouseEvent) {
       const target = button.dataset.id!;
       const repo = sources.find((r) => r.id === target);
       if (!repo) throw Error("REPOSITORY_NOT_GRANTED");
-      const nextKind = repo.sources.includes(kind) ? kind : "workspace";
+      if (target === repositoryId) {
+        directoryEpoch++;
+        dialog.close();
+        return;
+      }
+      // Repository identity changes invalidate repository-specific MR numbers
+      // and refs; open its workspace instead of carrying another repo's MR.
+      const nextKind = "workspace";
       const result = await call("repository_compare", {
         repositoryId: target,
         kind: nextKind,
-        ...(nextKind === "branch"
-          ? { baseRef, headRef }
-          : nextKind === "commit"
-            ? { headRef }
-            : nextKind === "mr"
-              ? { number: Number(mrNumber) }
-              : {}),
       });
       await loadReview(result.id);
       repositoryId = target;
