@@ -44,13 +44,12 @@ let treeFiles: any[] = [],
   treeRepository = "",
   treeTruncated = false;
 let notesVisible = false;
-const sourceLabels: Record<string, string> = {
-  workspace: "工作区 · 未提交",
-  staged: "暂存区",
-  branch: "分支比较",
-  commit: "提交比较",
-  mr: "MR",
-};
+let sourceChoices: any = null,
+  sourceChoicesLoading = false,
+  sourceChoicesError = "";
+let sourceChoicesEpoch = 0,
+  sourcePanelRepository = "";
+const comparisonNames = new Map<string, { baseRef: string; headRef: string }>();
 let directorySources: any[] = [],
   directoryAvailable = false,
   directoryEpoch = 0;
@@ -118,7 +117,7 @@ async function browseDirectories(
     const entries = [...previous, ...page.directories];
     const granted = sources.find((r) => r.id === binding.repositoryId);
     modal(
-      `<div class="row"><h2>选择 Git 仓库</h2><button data-action="close">取消</button></div><p>${e(source.device)} / ${e(source.name)} ${breadcrumbs.map((b) => " / " + e(b.name)).join("")}</p><button id="directory-up" ${!breadcrumbs.length ? "disabled" : ""}>返回上一级</button><div>${entries.map((d, i) => `<button class="history-item" data-directory-index="${i}">${e(d.name)} <span>文件夹 ›</span></button>`).join("") || '<p class="muted">此目录下没有子目录。</p>'}</div>${page.nextCursor ? '<button id="directory-more">加载更多目录</button>' : ""}<p>${granted ? "已关联授权仓库：" + e(granted.title) + "。确认时验证 Git 并读取比较。" : "此目录尚未关联已授权 Git 仓库。可继续浏览，不能仅凭目录可见扩大仓库权限。"}</p><button class="primary" data-action="select-repository" data-id="${e(granted?.id || "")}" ${!granted ? "disabled" : ""}>使用此仓库</button>`,
+      `<div class="row"><h2>选择 Git 仓库</h2><button data-action="close">取消</button></div><p>${e(source.device)} / ${e(source.name)} ${breadcrumbs.map((b) => " / " + e(b.name)).join("")}</p><button id="directory-up" ${!breadcrumbs.length ? "disabled" : ""}>返回上一级</button><div>${entries.map((d, i) => `<button class="history-item" data-directory-index="${i}">${e(d.name)} <span>文件夹 ›</span></button>`).join("") || '<p class="muted">此目录下没有子目录。</p>'}</div>${page.nextCursor ? '<button id="directory-more">加载更多目录</button>' : ""}<p>${granted ? "已关联授权仓库：" + e(granted.title) + "。确认后固定仓库，再选择比较来源。" : "此目录尚未关联已授权 Git 仓库。可继续浏览，不能仅凭目录可见扩大仓库权限。"}</p><button class="primary" data-action="select-repository" data-id="${e(granted?.id || "")}" ${!granted ? "disabled" : ""}>使用此仓库</button>`,
     );
     dialog.querySelectorAll<HTMLElement>("[data-directory-index]").forEach(
       (b) =>
@@ -326,8 +325,109 @@ async function action(fn: () => Promise<void>) {
 const option = (value: string, label: string, selected: string) =>
   `<option value="${e(value)}"${value === selected ? " selected" : ""}>${e(label)}</option>`;
 function sourceForm() {
-  const s = selectedRepo();
-  return `<div class="sources"><label><span class="sr-only">仓库</span><select data-field="repositoryId" aria-label="仓库">${sources.map((r) => option(r.id, r.title, repositoryId)).join("")}</select></label><select data-field="kind" aria-label="比较来源">${(s?.sources || []).map((k: string) => option(k, ({ workspace: "工作区 · 当前未提交", staged: "暂存区", branch: "分支比较", commit: "提交比较", mr: "MR / Pull Request" } as any)[k], kind)).join("")}</select>${kind === "branch" ? `<label><small>基准分支</small><input data-field="baseRef" aria-label="基准分支" value="${e(baseRef)}"></label>` : ""}${["branch", "commit"].includes(kind) ? `<label><small>${kind === "commit" ? "提交 SHA / 引用" : "目标分支"}</small><input data-field="headRef" aria-label="目标引用" value="${e(headRef)}"></label>` : ""}${kind === "mr" ? `<label><small>MR 编号</small><input type="number" min="1" data-field="mrNumber" aria-label="MR 编号" value="${e(mrNumber)}"></label>` : ""}<button class="primary" data-action="compare">读取真实变更</button><button data-action="history">浏览提交历史</button></div>`;
+  const repo = selectedRepo(),
+    choices = sourceChoices;
+  const ready = !sourceChoicesLoading && !sourceChoicesError;
+  const branches = choices?.branches || [],
+    commits = choices?.commits || [],
+    mrs = choices?.mergeRequests || [];
+  const branchSelect = (field: string, label: string, value: string) =>
+    `<label><small>${label}</small><select data-field="${field}" aria-label="${label}" ${!ready ? "disabled" : ""}>${branches.length ? branches.map((r: any) => option(r.sha, `${r.name} · ${r.sha.slice(0, 7)}`, value)).join("") : '<option value="">没有可用分支</option>'}</select></label>`;
+  let selector = "";
+  if (kind === "branch")
+    selector =
+      branchSelect("baseRef", "基准分支", baseRef) +
+      branchSelect("headRef", "目标分支", headRef) +
+      "<small>比较共同祖先到目标分支的变更。</small>";
+  if (kind === "commit")
+    selector = `<label><small>提交</small><select data-field="headRef" aria-label="提交" ${!ready ? "disabled" : ""}>${commits.length ? commits.map((r: any) => option(r.sha, `${r.sha.slice(0, 7)} · ${r.title}`, headRef)).join("") : '<option value="">没有可用提交</option>'}</select></label>`;
+  if (kind === "mr")
+    selector = `<label><small>MR / Pull Request</small><select data-field="mrNumber" aria-label="MR / Pull Request" ${!ready ? "disabled" : ""}>${mrs.length ? mrs.map((r: any) => option(String(r.number), `#${r.number} · ${r.title} · ${{ open: "打开", closed: "已关闭", merged: "已合并" }[r.state as string] || r.state}`, mrNumber)).join("") : '<option value="">没有可用 MR</option>'}</select></label>`;
+  const valid =
+    ready &&
+    sourcePanelRepository === repositoryId &&
+    (kind === "branch"
+      ? !!baseRef && !!headRef
+      : kind === "commit"
+        ? !!headRef
+        : kind === "mr"
+          ? Number(mrNumber) > 0
+          : true);
+  return `<div class="source-scope" data-source-repository="${e(repositoryId)}"><strong>${e(repo?.title || "未选择仓库")}</strong><small>仓库已固定 · 在左上角仓库菜单切换</small></div><div class="sources"><label><small>比较来源</small><select data-field="kind" aria-label="比较来源">${(repo?.sources || []).map((k: string) => option(k, ({ workspace: "工作区 · 当前未提交", staged: "暂存区", branch: "分支比较", commit: "提交", mr: "MR / Pull Request" } as any)[k], kind)).join("")}</select></label>${sourceChoicesLoading ? '<p role="status">正在读取当前仓库的来源信息…</p>' : ""}${sourceChoicesError ? '<p class="notice">来源信息读取失败，当前审阅保持不变。</p>' : ""}${selector}${choices?.limited ? "<small>显示最近一页结果，请刷新以获取最新信息。</small>" : ""}<div class="row"><button class="primary" data-action="compare" ${!valid ? "disabled" : ""}>读取比较</button>${["branch", "commit", "mr"].includes(kind) ? '<button data-action="refresh-source">刷新列表</button>' : ""}</div></div>`;
+}
+async function loadSourceChoices() {
+  const selectedRepository = sourcePanelRepository,
+    selectedKind = kind,
+    epoch = ++sourceChoicesEpoch;
+  sourceChoices = null;
+  sourceChoicesError = "";
+  sourceChoicesLoading = ["branch", "commit", "mr"].includes(kind);
+  const form = dialog.querySelector(".source-form");
+  if (form) form.innerHTML = sourceForm();
+  if (!sourceChoicesLoading) return;
+  try {
+    const result = await call("repository_choices", {
+      repositoryId: selectedRepository,
+      kind: selectedKind,
+    });
+    if (
+      epoch !== sourceChoicesEpoch ||
+      selectedRepository !== repositoryId ||
+      selectedKind !== kind ||
+      !dialog.open
+    )
+      return;
+    sourceChoices = result;
+    if (kind === "branch") {
+      const rows = result.branches || [];
+      baseRef =
+        (
+          rows.find((r: any) => r.sha === baseRef || r.name === baseRef) ||
+          rows.find((r: any) => r.name === "main") ||
+          rows[0]
+        )?.sha || "";
+      headRef =
+        (
+          rows.find((r: any) => r.sha === headRef || r.name === headRef) ||
+          rows.find((r: any) => r.sha === selectedRepo()?.head) ||
+          rows.at(-1)
+        )?.sha || "";
+    } else if (kind === "commit") {
+      headRef =
+        (
+          result.commits.find((r: any) => r.sha === headRef) ||
+          result.commits[0]
+        )?.sha || "";
+    } else
+      mrNumber = String(
+        (
+          result.mergeRequests.find(
+            (r: any) => String(r.number) === mrNumber,
+          ) || result.mergeRequests[0]
+        )?.number || "",
+      );
+  } catch (error) {
+    if (epoch !== sourceChoicesEpoch) return;
+    sourceChoicesError = "REPOSITORY_METADATA_UNAVAILABLE";
+  } finally {
+    if (epoch === sourceChoicesEpoch) {
+      sourceChoicesLoading = false;
+      const current = dialog.querySelector(".source-form");
+      if (current && dialog.open) current.innerHTML = sourceForm();
+    }
+  }
+}
+function openSourcePicker() {
+  if (!repositoryId) {
+    compactMenu("repository");
+    return;
+  }
+  sourcePanelRepository = repositoryId;
+  sourceDraftBackup = { repositoryId, kind, baseRef, headRef, mrNumber };
+  modal(
+    `<div class="sources-dialog"><div class="row"><h2>选择比较来源</h2><button class="quiet" data-action="close">取消</button></div><div class="source-form"></div></div>`,
+  );
+  void loadSourceChoices();
 }
 function fileList() {
   const seen = new Set<string>();
@@ -358,7 +458,7 @@ function fileList() {
 function render() {
   const saved = restoreSidebarState();
   root.classList.toggle("sidebar-hidden", !sidebarVisible);
-  root.innerHTML = `<header class="compact-top"><button class="icon-button" data-action="toggle-sidebar" aria-label="${sidebarVisible ? "收起" : "展开"}文件树" aria-expanded="${sidebarVisible}">☰</button><button class="repository-trigger" data-action="repository-menu" aria-haspopup="menu">${e(selectedRepo()?.title || "选择仓库")} <span aria-hidden="true">⌄</span></button><button class="source-trigger" data-action="source">${e(comparisonLabel(review?.source))}</button><span class="top-spacer"></span><button class="icon-button" data-action="compare" aria-label="刷新比较" ${!repositoryId ? "disabled" : ""}>↻</button></header><div class="workspace"><button class="sidebar-scrim" data-action="toggle-sidebar" aria-label="收起文件树"></button><aside class="sidebar"><div class="tree-tabs"><button class="${!treeMode ? "active" : ""}" data-action="changes-tree">变更 <small>${review?.fileCount ?? "—"}</small></button><button class="${treeMode ? "active" : ""}" data-action="repository-tree" ${!repositoryId ? "disabled" : ""}>文件树</button></div><input class="filter" data-field="filter" aria-label="筛选文件" placeholder="筛选文件…" value="${e(fileFilter)}">${fileList()}${treeMode ? `<p class="tree-context">提交 ${e(treeRef.slice(0, 7))}${treeTruncated ? " · 结果已截断" : ""}</p>` : ""}<footer class="sidebar-progress">${review ? `${review.viewed.length} / ${review.fileCount} 个文件已阅` : "选择比较来源后开始审阅"}</footer></aside><section class="content" aria-label="审阅内容">${mode === "versions" ? versionView() : diffView()}</section></div>`;
+  root.innerHTML = `<header class="compact-top"><button class="icon-button" data-action="toggle-sidebar" aria-label="${sidebarVisible ? "收起" : "展开"}文件树" aria-expanded="${sidebarVisible}">☰</button><button class="repository-trigger" data-action="repository-menu" aria-haspopup="menu">${e(selectedRepo()?.title || "选择仓库")} <span aria-hidden="true">⌄</span></button><button class="source-trigger" data-action="source">${e(comparisonLabel(review ? { ...review.source, ...comparisonNames.get(review.id) } : undefined))}</button><span class="top-spacer"></span><button class="icon-button" data-action="compare" aria-label="刷新比较" ${!repositoryId ? "disabled" : ""}>↻</button></header><div class="workspace"><button class="sidebar-scrim" data-action="toggle-sidebar" aria-label="收起文件树"></button><aside class="sidebar"><div class="tree-tabs"><button class="${!treeMode ? "active" : ""}" data-action="changes-tree">变更 <small>${review?.fileCount ?? "—"}</small></button><button class="${treeMode ? "active" : ""}" data-action="repository-tree" ${!repositoryId ? "disabled" : ""}>文件树</button></div><input class="filter" data-field="filter" aria-label="筛选文件" placeholder="筛选文件…" value="${e(fileFilter)}">${fileList()}${treeMode ? `<p class="tree-context">提交 ${e(treeRef.slice(0, 7))}${treeTruncated ? " · 结果已截断" : ""}</p>` : ""}<footer class="sidebar-progress">${review ? `${review.viewed.length} / ${review.fileCount} 个文件已阅` : "选择比较来源后开始审阅"}</footer></aside><section class="content" aria-label="审阅内容">${mode === "versions" ? versionView() : diffView()}</section></div>`;
   const side = root.querySelector(".sidebar") as HTMLElement;
   const content = root.querySelector(".content") as HTMLElement;
   side.scrollTop = saved.side;
@@ -647,17 +747,14 @@ root.addEventListener("change", (event) => {
 dialog.addEventListener("change", (event) => {
   const el = event.target as HTMLInputElement;
   const field = el.dataset.field;
-  if (!field) return;
-  const values: Record<string, (s: string) => void> = {
-    repositoryId: (s) => (repositoryId = s),
-    kind: (s) => (kind = s),
-    baseRef: (s) => (baseRef = s),
-    headRef: (s) => (headRef = s),
-    mrNumber: (s) => (mrNumber = s),
-  };
-  values[field]?.(el.value);
-  if (["kind", "repositoryId"].includes(field))
-    dialog.querySelector(".source-form")!.innerHTML = sourceForm();
+  if (field === "kind") {
+    kind = el.value;
+    void loadSourceChoices();
+    return;
+  }
+  if (field === "baseRef") baseRef = el.value;
+  if (field === "headRef") headRef = el.value;
+  if (field === "mrNumber") mrNumber = el.value;
 });
 async function change(args: Record<string, unknown>) {
   await call("review_change", {
@@ -676,6 +773,7 @@ async function click(event: MouseEvent) {
   const a = button.dataset.action;
   if (a === "close") {
     directoryEpoch++;
+    sourceChoicesEpoch++;
     cancelSourceDraft();
     dialog.close();
     return;
@@ -712,34 +810,36 @@ async function click(event: MouseEvent) {
     return;
   }
   if (a === "select-repository") {
-    await action(async () => {
-      const target = button.dataset.id!;
-      const repo = sources.find((r) => r.id === target);
-      if (!repo) throw Error("REPOSITORY_NOT_GRANTED");
-      if (target === repositoryId) {
-        directoryEpoch++;
-        dialog.close();
-        return;
-      }
-      // Repository identity changes invalidate repository-specific MR numbers
-      // and refs; open its workspace instead of carrying another repo's MR.
-      const nextKind = "workspace";
-      const result = await call("repository_compare", {
-        repositoryId: target,
-        kind: nextKind,
-      });
-      await loadReview(result.id);
+    if (busy) return;
+    const target = button.dataset.id!;
+    if (!sources.some((r) => r.id === target)) {
+      toast("REPOSITORY_NOT_GRANTED", true);
+      return;
+    }
+    sourceChoicesEpoch++;
+    directoryEpoch++;
+    dialog.close();
+    if (target !== repositoryId) {
       repositoryId = target;
-      kind = nextKind;
+      kind = "workspace";
+      baseRef = "main";
+      headRef = "HEAD";
+      mrNumber = "";
+      review = null;
+      file = null;
+      mode = "diff";
+      view = "unified";
+      page = 0;
       treeMode = false;
       treeFiles = [];
+      notesVisible = false;
+      reviewLoadSequence++;
       collapsedDirectories.clear();
       fileFilter = "";
-      mode = "diff";
-      directoryEpoch++;
-      dialog.close();
       render();
-    });
+    }
+    openSourcePicker();
+    await publishDesktopSelection();
     return;
   }
   if (a === "repository-tree") {
@@ -770,10 +870,11 @@ async function click(event: MouseEvent) {
   }
 
   if (a === "source") {
-    sourceDraftBackup = { repositoryId, kind, baseRef, headRef, mrNumber };
-    modal(
-      `<div class="sources-dialog"><div class="row"><h2>选择比较来源</h2><button class="quiet" data-action="close">关闭</button></div><div class="source-form">${sourceForm()}</div></div>`,
-    );
+    openSourcePicker();
+    return;
+  }
+  if (a === "refresh-source") {
+    void loadSourceChoices();
     return;
   }
   if (busy) return;
@@ -869,7 +970,21 @@ async function click(event: MouseEvent) {
     }
     if (a === "compare") {
       const previous = sourceDraftBackup;
+      if (previous && sourcePanelRepository !== repositoryId)
+        throw Error("REPOSITORY_SELECTION_CHANGED");
+      const names =
+        kind === "branch"
+          ? {
+              baseRef:
+                sourceChoices?.branches?.find((r: any) => r.sha === baseRef)
+                  ?.name || baseRef,
+              headRef:
+                sourceChoices?.branches?.find((r: any) => r.sha === headRef)
+                  ?.name || headRef,
+            }
+          : undefined;
       sourceDraftBackup = null;
+      sourceChoicesEpoch++;
       dialog.close();
       try {
         const result = await call("repository_compare", {
@@ -883,6 +998,7 @@ async function click(event: MouseEvent) {
                 ? { number: Number(mrNumber) }
                 : {}),
         });
+        if (names) comparisonNames.set(result.id, names);
         mode = "diff";
         treeMode = false;
         treeFiles = [];
@@ -1133,5 +1249,6 @@ document.addEventListener("keydown", (event) => {
 
 dialog.addEventListener("cancel", () => {
   directoryEpoch++;
+  sourceChoicesEpoch++;
   cancelSourceDraft();
 });

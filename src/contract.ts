@@ -89,6 +89,7 @@ export const publicContract = {
       operations: {
         sources: "review_sources",
         tree: "repository_tree",
+        choices: "repository_choices",
         compare: "repository_compare",
         history: "repository_history",
         readFile: "repository_read",
@@ -102,6 +103,7 @@ export const publicContract = {
       tools: [
         "review_sources",
         "repository_tree",
+        "repository_choices",
         "repository_compare",
         "repository_history",
         "repository_read",

@@ -102,6 +102,16 @@ export function buildServer(
     );
   register("review_sources", z.object({}).strict(), () => provider.list());
   register(
+    "repository_choices",
+    z
+      .object({
+        repositoryId: z.string().min(1).max(100),
+        kind: z.enum(["branch", "commit", "mr"]),
+      })
+      .strict(),
+    (a) => provider.choices(a.repositoryId, a.kind),
+  );
+  register(
     "repository_tree",
     z
       .object({

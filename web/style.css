@@ -1335,3 +1335,32 @@ dialog p {
 .review-desktop-workspace .sidebar-scrim {
   display: none;
 }
+.source-scope {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 0 16px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+}
+.source-scope strong {
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.source-scope small {
+  font-size: 12px;
+}
+.sources label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.sources select {
+  min-width: 0;
+  width: 100%;
+  text-overflow: ellipsis;
+}
+.sources [role="status"] {
+  padding: 8px 0;
+  color: var(--muted);
+}
