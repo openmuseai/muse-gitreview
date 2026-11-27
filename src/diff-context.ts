@@ -5,7 +5,8 @@ export interface ContextGap {
   id: string;
   oldStart: number;
   newStart: number;
-  lines: string[];
+  count: number;
+  lines?: string[];
 }
 export type DiffSection = { hunk: DiffHunk } | { gap: ContextGap };
 
@@ -14,14 +15,49 @@ const sourceLines = (text: string) => {
   if (lines.at(-1) === "") lines.pop();
   return lines;
 };
+export function sourceLineExists(
+  file: ChangeFile,
+  side: "left" | "right",
+  line: number,
+) {
+  const text = side === "left" ? file.before : file.after;
+  return (
+    Number.isSafeInteger(line) &&
+    line > 0 &&
+    text !== undefined &&
+    line <= sourceLines(text).length
+  );
+}
 
 /** Add only context verified against both immutable texts and patch anchors. */
 export function contextSections(
   file: ChangeFile,
   hunks: DiffHunk[],
 ): DiffSection[] {
-  if (file.before === undefined || file.after === undefined)
-    return hunks.map((hunk) => ({ hunk }));
+  if (file.before === undefined || file.after === undefined) {
+    const sections: DiffSection[] = [];
+    let oldEnd = 0,
+      newEnd = 0;
+    for (const hunk of hunks) {
+      const oldStart = Math.max(0, hunk.oldStart - 1),
+        newStart = Math.max(0, hunk.newStart - 1);
+      const count = oldStart - oldEnd;
+      // These are folded ranges inferred from patch anchors, never source text.
+      if (count > 0 && newStart - newEnd === count)
+        sections.push({
+          gap: {
+            id: `${oldEnd}:${newEnd}`,
+            oldStart: oldEnd + 1,
+            newStart: newEnd + 1,
+            count,
+          },
+        });
+      sections.push({ hunk });
+      oldEnd = oldStart + hunk.oldLines;
+      newEnd = newStart + hunk.newLines;
+    }
+    return sections;
+  }
   const old = sourceLines(file.before),
     next = sourceLines(file.after);
   const sections: DiffSection[] = [];
@@ -43,6 +79,7 @@ export function contextSections(
           id: `${oldEnd}:${newEnd}`,
           oldStart: oldEnd + 1,
           newStart: newEnd + 1,
+          count: left.length,
           lines: left,
         },
       });
@@ -75,6 +112,7 @@ export function contextSections(
 }
 
 export function contextLines(gap: ContextGap): DiffLine[] {
+  if (!gap.lines) throw Error("FULL_CONTEXT_UNAVAILABLE");
   return gap.lines.map((text, i) => ({
     kind: "context",
     text,

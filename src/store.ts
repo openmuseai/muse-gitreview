@@ -1,8 +1,13 @@
 import { createHash, randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { comparisonSchema, type Comparison } from "./contract.ts";
+import {
+  comparisonSchema,
+  type Comparison,
+  type ChangeFile,
+} from "./contract.ts";
 import { buildHunks } from "./diff-model.ts";
+import { contextSections, sourceLineExists } from "./diff-context.ts";
 
 export const digest = (value: unknown) =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");
@@ -155,19 +160,25 @@ export class ReviewStore {
       notes: r.notes,
     };
   }
-  async change(a: {
-    comparisonId: string;
-    expectedDigest: string;
-    commandId: string;
-    path?: string;
-    viewed?: boolean;
-    side?: "left" | "right";
-    line?: number;
-    body?: string;
-    noteId?: string;
-    resolved?: boolean;
-    decision?: RecordState["decision"];
-  }) {
+  async change(
+    a: {
+      comparisonId: string;
+      expectedDigest: string;
+      commandId: string;
+      path?: string;
+      viewed?: boolean;
+      side?: "left" | "right";
+      line?: number;
+      body?: string;
+      noteId?: string;
+      resolved?: boolean;
+      decision?: RecordState["decision"];
+    },
+    readContext?: (
+      comparison: Comparison,
+      file: ChangeFile,
+    ) => Promise<ChangeFile>,
+  ) {
     return this.serial(async () => {
       const r = this.get(a.comparisonId),
         previous = structuredClone(r);
@@ -217,7 +228,24 @@ export class ReviewStore {
               .find(
                 (l) => (a.side === "left" ? l.oldLine : l.newLine) === a.line,
               );
-          if (!line) throw Error("NOTE_ANCHOR_INVALID");
+          if (!line) {
+            if (
+              file.binary ||
+              file.truncated ||
+              file.patchUnavailable ||
+              model.partial
+            )
+              throw Error("NOTE_ANCHOR_INVALID");
+            const full =
+              file.before !== undefined && file.after !== undefined
+                ? file
+                : await readContext?.(r.comparison, file);
+            if (!full || full.before === undefined || full.after === undefined)
+              throw Error("NOTE_ANCHOR_INVALID");
+            contextSections(full, model.hunks);
+            if (!sourceLineExists(full, a.side, a.line))
+              throw Error("NOTE_ANCHOR_INVALID");
+          }
           if (r.notes.length >= 500) throw Error("REVIEW_NOTE_LIMIT");
           r.notes.push({
             id: randomUUID(),

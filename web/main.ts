@@ -48,7 +48,53 @@ let treeFiles: any[] = [],
   treeRef = "",
   treeRepository = "",
   treeTruncated = false;
-let notesVisible = false;
+interface NoteDraft {
+  comparisonId: string;
+  path: string;
+  side: "left" | "right";
+  line: number;
+  body: string;
+}
+const noteDrafts = new Map<string, NoteDraft>();
+let activeNoteKey = "";
+function noteAnchor(side: "left" | "right", number?: number) {
+  if (number === undefined) return "";
+  if (
+    !review?.files.some((f: any) => f.path === file?.path) ||
+    file?.binary ||
+    file?.patchUnavailable
+  )
+    return String(number);
+  return `<button class="anchor" data-action="note" data-side="${side}" data-line="${number}" aria-label="在${side === "left" ? "原" : "新"}版本第 ${number} 行添加意见">${number}</button>`;
+}
+function inlineNotes(
+  anchors: { side: "left" | "right"; line?: number }[],
+  columns = 4,
+) {
+  const draft = noteDrafts.get(activeNoteKey);
+  const threads = anchors
+    .filter((a) => a.line !== undefined)
+    .map((anchor) => {
+      const notes = (review?.notes || []).filter(
+        (n: any) =>
+          n.path === file?.path &&
+          n.side === anchor.side &&
+          n.line === anchor.line,
+      );
+      const editing =
+        draft?.comparisonId === review?.id &&
+        draft?.path === file?.path &&
+        draft?.side === anchor.side &&
+        draft?.line === anchor.line;
+      if (!notes.length && !editing) return "";
+      const label = `${anchor.side === "left" ? "原版本" : "新版本"} L${anchor.line}`;
+      return `<div class="inline-thread" data-note-side="${anchor.side}" data-note-line="${anchor.line}">${notes.map((n: any) => `<article class="inline-note ${n.resolved ? "resolved" : ""}" data-note-id="${e(n.id)}"><div class="inline-note-meta"><strong>${e(n.actor)}</strong><span>${label}${n.resolved ? " · 已解决" : ""}</span><button data-action="resolve" data-id="${e(n.id)}" data-resolved="${!n.resolved}">${n.resolved ? "重新打开" : "解决"}</button></div><p>${e(n.body)}</p></article>`).join("")}${editing ? `<div class="inline-composer" role="form" aria-label="${label} 审阅意见"><label>${label} · 添加意见<textarea data-field="note-body" aria-label="审阅意见" maxlength="10000" placeholder="说明问题与建议…">${e(draft.body)}</textarea></label><div class="inline-note-actions"><button data-action="cancel-inline-note">取消</button><button class="primary" data-action="save-inline-note">保存意见</button></div></div>` : ""}</div>`;
+    })
+    .join("");
+  return threads
+    ? `<tr class="inline-notes-row"><td colspan="${columns}">${threads}</td></tr>`
+    : "";
+}
 let sourceChoices: any = null,
   sourceChoicesLoading = false,
   sourceChoicesError = "";
@@ -300,14 +346,18 @@ function compactMenu(type: "repository" | "file") {
           )
           .join(
             "",
-          )}<hr><button role="menuitem" data-action="viewed" ${!review?.files.some((f: any) => f.path === file?.path) ? "disabled" : ""}>${review?.viewed.includes(file?.path) ? "取消已阅" : "标记已阅"}</button><button role="menuitem" data-action="context-all" ${file?.binary || file?.patchUnavailable || !["unified", "split"].includes(view) ? "disabled" : ""}>${[...expandedContexts].some((k) => k.startsWith(fileKey(file!.path) + ":")) ? "折叠未改动区" : "展开未改动区"}</button><div class="font-controls" role="group" aria-label="代码字体大小"><span>${codeFontSize} px</span><button data-action="font-smaller" aria-label="减小字体" ${codeFontSize <= 11 ? "disabled" : ""}>A−</button><button data-action="font-reset" aria-label="重置字体">重置</button><button data-action="font-larger" aria-label="增大字体" ${codeFontSize >= 24 ? "disabled" : ""}>A+</button></div><button role="menuitem" data-action="native-viewer">原生 Diff / 代码浏览…</button><button role="menuitem" data-action="notes">意见与审阅结论…</button><button role="menuitem" data-action="export">审阅回执…</button>`;
+          )}<hr><button role="menuitem" data-action="viewed" ${!review?.files.some((f: any) => f.path === file?.path) ? "disabled" : ""}>${review?.viewed.includes(file?.path) ? "取消已阅" : "标记已阅"}</button><div class="font-controls" role="group" aria-label="代码字体大小"><span>${codeFontSize} px</span><button data-action="font-smaller" aria-label="减小字体" ${codeFontSize <= 11 ? "disabled" : ""}>A−</button><button data-action="font-reset" aria-label="重置字体">重置</button><button data-action="font-larger" aria-label="增大字体" ${codeFontSize >= 24 ? "disabled" : ""}>A+</button></div><button role="menuitem" data-action="native-viewer">原生 Diff / 代码浏览…</button><hr><small>审阅 · ${review?.viewed.length || 0} / ${review?.fileCount || 0} 个文件已阅</small><button role="menuitem" data-action="decision" data-decision="accepted">完成审阅</button><button role="menuitem" data-action="decision" data-decision="changes_requested">需要修改</button><button role="menuitem" data-action="export">审阅回执…</button>`;
   root.append(menu);
   menu.querySelector<HTMLElement>("button")?.focus();
 }
 function restoreSidebarState() {
   const side = root.querySelector(".sidebar") as HTMLElement | null;
   const content = root.querySelector(".content") as HTMLElement | null;
-  return { side: side?.scrollTop || 0, content: content?.scrollTop || 0 };
+  return {
+    side: side?.scrollTop || 0,
+    content: content?.scrollTop || 0,
+    diff: root.querySelector(".diff-scroll")?.scrollTop || 0,
+  };
 }
 let desktopPresentation = "",
   desktopInput: Record<string, any> = {},
@@ -584,11 +634,13 @@ function render() {
   const content = root.querySelector(".content") as HTMLElement;
   side.scrollTop = saved.side;
   content.scrollTop = saved.content;
+  const diff = root.querySelector(".diff-scroll");
+  if (diff) diff.scrollTop = saved.diff;
 }
 function diffView() {
   if (!review)
     return `<div class="empty"><h2>选择仓库，开始审阅。</h2><p>选择已授权仓库与比较来源。代码和文档使用同一个阅读工作台。</p><button class="primary" data-action="source">选择比较来源</button></div>`;
-  return `${review.incomplete ? '<div class="notice">来源不完整，不能作为完整审阅通过。</div>' : ""}${file ? fileView() : '<div class="empty"><h2>没有变更</h2><p>当前比较与基准一致，可切换来源或浏览固定提交的文件树。</p></div>'}${notesVisible ? reviewPanel() : ""}`;
+  return `${review.incomplete ? '<div class="notice">来源不完整，不能作为完整审阅通过。</div>' : ""}${file ? fileView() : '<div class="empty"><h2>没有变更</h2><p>当前比较与基准一致，可切换来源或浏览固定提交的文件树。</p></div>'}`;
 }
 function fileView() {
   const f = file!,
@@ -642,7 +694,7 @@ function fullView(f: ChangeFile) {
     .slice(start, end)
     .map(
       (text, i) =>
-        `<tr><td class="gutter">${start + i + 1}</td><td class="code"><code>${lineHtml({ kind: "context", text, hunk: 0 }, tokens?.[start + i])}</code></td></tr>`,
+        `<tr><td class="gutter">${noteAnchor(view === "before" ? "left" : "right", start + i + 1)}</td><td class="code"><code>${lineHtml({ kind: "context", text, hunk: 0 }, tokens?.[start + i])}</code></td></tr>${inlineNotes([{ side: view === "before" ? "left" : "right", line: start + i + 1 }], 2)}`,
     )
     .join("")}</tbody></table>${pager(lines.length)}</div>`;
 }
@@ -665,6 +717,7 @@ function diffTable(f: ChangeFile) {
   const rows: {
     hunk?: any;
     gap?: ContextGap;
+    contextEnd?: boolean;
     line?: DiffLine;
     pair?: ReturnType<typeof pairedRows>[number];
     patchOld?: any[];
@@ -678,19 +731,31 @@ function diffTable(f: ChangeFile) {
     sections = model.hunks.map((hunk) => ({ hunk }));
     contextWarning = "完整文件与固定补丁不一致，无法展开未改动区。";
   }
-  for (const section of sections) {
+  function appendContext(gap: ContextGap) {
+    if (!gap.lines || !expandedContexts.has(gapKey(gap.id))) return;
+    const lines = contextLines(gap);
+    for (const row of view === "split"
+      ? pairedRows(lines).map((pair) => ({ pair }))
+      : lines.map((line) => ({ line })))
+      rows.push(row);
+    rows.push({ gap, contextEnd: true });
+  }
+  let precedingGap: ContextGap | undefined;
+  for (let index = 0; index < sections.length; index++) {
+    const section = sections[index];
     if ("gap" in section) {
-      rows.push({ gap: section.gap });
-      if (expandedContexts.has(gapKey(section.gap.id))) {
-        const lines = contextLines(section.gap);
-        for (const row of view === "split"
-          ? pairedRows(lines).map((pair) => ({ pair }))
-          : lines.map((line) => ({ line })))
-          rows.push(row);
+      if (sections[index + 1] && "hunk" in sections[index + 1])
+        precedingGap = section.gap;
+      else {
+        rows.push({ gap: section.gap });
+        appendContext(section.gap);
       }
       continue;
     }
     const h = section.hunk;
+    rows.push({ hunk: h, gap: precedingGap });
+    if (precedingGap) appendContext(precedingGap);
+    precedingGap = undefined;
     const patchOld = oldTokens
         ? null
         : tokenize(
@@ -717,17 +782,13 @@ function diffTable(f: ChangeFile) {
       if (l.oldLine !== undefined) oldMap.set(l.oldLine, patchOld?.[oi++]);
       if (l.newLine !== undefined) newMap.set(l.newLine, patchNew?.[ni++]);
     }
-    rows.push({ hunk: h });
     for (const row of view === "split"
       ? pairedRows(h.lines).map((pair) => ({ pair }))
       : h.lines.map((line) => ({ line })))
       rows.push({ ...row, patchOld: oldMap as any, patchNew: newMap as any });
   }
   function anchor(line: DiffLine, side: "left" | "right") {
-    const number = side === "left" ? line.oldLine : line.newLine;
-    if (number === undefined) return "";
-    if (line.hunk === -1) return `<span title="未改动内容">${number}</span>`;
-    return `<button class="anchor" data-action="note" data-side="${side}" data-line="${number}" aria-label="在${side === "left" ? "原" : "新"}版本第 ${number} 行添加意见">${number}</button>`;
+    return noteAnchor(side, side === "left" ? line.oldLine : line.newLine);
   }
   function cell(
     line: DiffLine | undefined,
@@ -745,19 +806,33 @@ function diffTable(f: ChangeFile) {
             : newTokens?.[number - 1]) || patch?.get(number);
     return `<td class="gutter ${extra} line-${line.kind}">${anchor(line, side)}</td><td class="code line-${line.kind}"><code>${lineHtml(line, tokens)}</code></td>`;
   }
+  page = Math.min(page, Math.max(0, Math.ceil(rows.length / 500) - 1));
   const html = rows
     .slice(page * 500, (page + 1) * 500)
     .map((row) => {
-      if (row.gap) {
-        const expanded = expandedContexts.has(gapKey(row.gap.id));
-        return `<tr class="context-gap"><td colspan="4"><button data-action="toggle-context" data-gap="${e(row.gap.id)}" aria-expanded="${expanded}">${expanded ? "⌃ 折叠" : "⌄ 展开"} ${row.gap.lines.length} 行未改动内容</button></td></tr>`;
-      }
       if (row.hunk) {
-        const h = row.hunk;
-        return `<tr class="hunk"><td colspan="${view === "split" ? 4 : 4}">@@ −${h.oldStart},${h.oldLines} +${h.newStart},${h.newLines} @@</td></tr>`;
+        const h = row.hunk,
+          gap = row.gap;
+        const interactive =
+          !!gap ||
+          ((f.before === undefined || f.after === undefined) &&
+            !contextWarning);
+        const expanded = !!gap && expandedContexts.has(gapKey(gap.id));
+        const label = `@@ −${h.oldStart},${h.oldLines} +${h.newStart},${h.newLines} @@`;
+        return `<tr class="hunk"><td colspan="4">${interactive ? `<button class="context-region" data-action="context-region" ${gap ? `data-gap="${e(gap.id)}"` : ""} data-hunk="${h.oldStart}:${h.newStart}" aria-expanded="${expanded}" title="点击${expanded ? "折叠" : "展开"}未改动区">${label}<span>${expanded ? "⌃" : "⌄"}${gap ? ` ${gap.count} 行未改动` : ""}</span></button>` : label}</td></tr>`;
+      }
+      if (row.gap) {
+        const gap = row.gap,
+          expanded = expandedContexts.has(gapKey(gap.id));
+        return `<tr class="context-gap"><td colspan="4"><button class="context-region" data-action="context-region" data-gap="${e(gap.id)}" aria-expanded="${expanded}">${expanded ? "⌃" : "⌄"} ${row.contextEnd ? "收起未改动区" : `${gap.count} 行未改动内容`}</button></td></tr>`;
       }
       if (row.pair)
-        return `<tr>${cell(row.pair.left, "left", "", row.patchOld)}${cell(row.pair.right, "right", "split-divider", row.patchNew)}</tr>`;
+        return `<tr>${cell(row.pair.left, "left", "", row.patchOld)}${cell(row.pair.right, "right", "split-divider", row.patchNew)}</tr>${inlineNotes(
+          [
+            { side: "left", line: row.pair.left?.oldLine },
+            { side: "right", line: row.pair.right?.newLine },
+          ],
+        )}`;
       const l = row.line!,
         side = l.kind === "delete" ? "left" : "right",
         n = side === "left" ? l.oldLine : l.newLine,
@@ -767,13 +842,15 @@ function diffTable(f: ChangeFile) {
             : side === "left"
               ? oldTokens?.[n - 1] || (row.patchOld as any)?.get(n)
               : newTokens?.[n - 1] || (row.patchNew as any)?.get(n);
-      return `<tr class="line-${l.kind}"><td class="gutter">${anchor(l, "left")}</td><td class="gutter">${anchor(l, "right")}</td><td class="sign">${l.kind === "add" ? "+" : l.kind === "delete" ? "−" : ""}</td><td class="code"><code>${lineHtml(l, tokens)}</code></td></tr>`;
+      return `<tr class="line-${l.kind}"><td class="gutter">${anchor(l, "left")}</td><td class="gutter">${anchor(l, "right")}</td><td class="sign">${l.kind === "add" ? "+" : l.kind === "delete" ? "−" : ""}</td><td class="code"><code>${lineHtml(l, tokens)}</code></td></tr>${inlineNotes(
+        [
+          { side: "left", line: l.oldLine },
+          { side: "right", line: l.newLine },
+        ],
+      )}`;
     })
     .join("");
-  return `<div class="diff-scroll">${contextWarning ? `<p class="notice">${contextWarning}</p>` : f.before === undefined || f.after === undefined ? '<div class="context-loader"><button data-action="context-all">展开未改动区</button></div>' : ""}<table class="diff-table ${view === "split" ? "split" : ""}"><colgroup>${view === "split" ? '<col style="width:52px"><col><col style="width:52px"><col>' : '<col class="gutter"><col class="gutter"><col class="sign"><col>'}</colgroup><tbody>${html}</tbody></table>${pager(rows.length)}</div>`;
-}
-function reviewPanel() {
-  return `<div class="review-panel"><div class="review-title"><h3>审阅意见</h3><small>点击 Diff 行号添加 · ${e(review.actor)}</small></div>${review.notes.length ? review.notes.map((n: any) => `<article class="note ${n.resolved ? "resolved" : ""}"><div class="note-meta">${e(n.path)} · ${n.side === "left" ? "原" : "新"}版本 L${n.line} · ${e(n.actor)}</div><p>${e(n.body)}</p><button data-action="resolve" data-id="${n.id}" data-resolved="${!n.resolved}">${n.resolved ? "重新打开" : "解决意见"}</button></article>`).join("") : '<p class="muted">还没有意见。已阅状态与意见固定在此份变更快照中。</p>'}<div class="review-actions"><small>这里记录本地审阅结论，不会向代码平台提交批准或执行合并。</small><div class="row"><button data-action="decision" data-decision="changes_requested">需要修改</button><button class="primary" data-action="decision" data-decision="accepted">完成审阅</button></div></div></div>`;
+  return `<div class="diff-scroll">${contextWarning ? `<p class="notice">${contextWarning}</p>` : ""}<table class="diff-table ${view === "split" ? "split" : ""}"><colgroup>${view === "split" ? '<col style="width:52px"><col><col style="width:52px"><col>' : '<col class="gutter"><col class="gutter"><col class="sign"><col>'}</colgroup><tbody>${html}</tbody></table>${pager(rows.length)}</div>`;
 }
 function versionView() {
   return `<div class="version-area"><div><span class="label">HOST VERSION AUTHORITY</span><h2>文件版本</h2><p class="version-meta">复用 OpenMuse 的版本库。代码、文本、图片及其他文件以完整字节保存；恢复前自动保留当前版本。</p></div>${hostResources.length ? `<label>已授权文件<select data-field="resourceId" aria-label="版本文件">${hostResources.map((r) => option(r.id, r.path, resourceId)).join("")}</select></label><div class="row"><button data-action="capture" class="primary"${!hostWritable ? " disabled" : ""}>保存当前版本</button><button data-action="reload-versions">刷新历史</button></div><div class="version-meta">${current ? `当前 ${current.byteLength} 字节 · ${e(current.sha256.slice(0, 16))}${current.binary ? " · 二进制" : ""}` : ""}</div><div class="version-grid"><label>原版本<select data-field="beforeVersion" aria-label="原版本">${versions.map((v) => option(v.id, versionLabel(v), beforeVersion)).join("")}</select></label><label>新版本<select data-field="afterVersion" aria-label="新版本">${option("", "当前文件", afterVersion)}${versions.map((v) => option(v.id, versionLabel(v), afterVersion)).join("")}</select></label></div><button data-action="compare-versions"${!beforeVersion ? " disabled" : ""}>比较所选版本</button><div><h3>版本历史 · ${versions.length}</h3>${versions.map((v) => `<div class="version-row"><div><strong>${e(v.sha256.slice(0, 12))}</strong><div class="version-meta">${e(new Date(v.createdAt).toLocaleString())}<br>${v.byteLength} 字节 · 事件 ${e(v.id.slice(0, 8))}</div></div><div class="row"><button data-action="read-version" data-id="${e(v.id)}">查看</button><button data-action="restore" data-id="${e(v.id)}"${!hostWritable ? " disabled" : ""}>恢复</button></div></div>`).join("")}</div>` : '<div class="notice">当前 Host 没有向此插件授予文件版本能力。请由安装方选择文件并授予 versions.read；写入还需要 versions.write。仓库 Diff 可以独立使用。</div>'}</div>`;
@@ -783,6 +860,7 @@ function versionLabel(v: any) {
 }
 let reviewLoadSequence = 0;
 async function loadReview(id: string, path?: string) {
+  const previousFileKey = file ? fileKey(file.path) : "";
   const sequence = ++reviewLoadSequence;
   const nextReview = await call("review_read", { comparisonId: id });
   const selected =
@@ -810,6 +888,8 @@ async function loadReview(id: string, path?: string) {
   sessions = nextSessions;
   page = 0;
   render();
+  if (!file || fileKey(file.path) !== previousFileKey)
+    root.querySelector(".diff-scroll")?.scrollTo(0, 0);
 }
 async function refreshVersions() {
   if (!resourceId) return;
@@ -860,6 +940,11 @@ function modal(html: string) {
 }
 root.addEventListener("input", (event) => {
   const el = event.target as HTMLInputElement;
+  if (el.dataset.field === "note-body") {
+    const draft = noteDrafts.get(activeNoteKey);
+    if (draft) draft.body = el.value;
+    return;
+  }
   if (el.dataset.field !== "filter") return;
   fileFilter = el.value;
   const tree = root.querySelector(".git-tree");
@@ -918,13 +1003,18 @@ dialog.addEventListener("change", (event) => {
   if (field === "mrNumber") mrNumber = el.value;
 });
 async function change(args: Record<string, unknown>) {
+  const id = review.id;
   await call("review_change", {
-    comparisonId: review.id,
+    comparisonId: id,
     expectedDigest: review.digest,
     commandId: uid(),
     ...args,
   });
-  await loadReview(review.id, file?.path);
+  const updated = await call("review_read", { comparisonId: id });
+  if (review?.id !== id) return;
+  review = updated;
+  sessions = sessions.map((s) => (s.id === id ? { ...s, ...updated } : s));
+  render();
 }
 async function click(event: MouseEvent) {
   const button = (event.target as HTMLElement).closest<HTMLElement>(
@@ -947,12 +1037,6 @@ async function click(event: MouseEvent) {
   if (a === "toggle-sidebar") {
     sidebarVisible = !sidebarVisible;
     render();
-    return;
-  }
-  if (a === "notes") {
-    notesVisible = !notesVisible;
-    render();
-    root.querySelector(".review-panel")?.scrollIntoView();
     return;
   }
   if (a === "changes-tree") {
@@ -993,7 +1077,6 @@ async function click(event: MouseEvent) {
       page = 0;
       treeMode = false;
       treeFiles = [];
-      notesVisible = false;
       reviewLoadSequence++;
       collapsedDirectories.clear();
       fileFilter = "";
@@ -1089,6 +1172,7 @@ async function click(event: MouseEvent) {
   if (a === "page") {
     page = Number(button.dataset.page);
     render();
+    root.querySelector(".diff-scroll")?.scrollTo(0, 0);
     return;
   }
   if (a === "diff-mode") {
@@ -1097,28 +1181,57 @@ async function click(event: MouseEvent) {
     return;
   }
   if (a === "note") {
-    modal(
-      `<h2>添加审阅意见</h2><p class="version-meta">${e(file!.path)} · ${button.dataset.side === "left" ? "原" : "新"}版本 L${button.dataset.line}</p><div id="note-form" role="form" aria-label="审阅意见表单"><label class="sr-only" for="note-body">审阅意见</label><textarea id="note-body" name="body" required maxlength="10000" placeholder="说明问题、影响与建议…"></textarea><div class="row"><button class="primary" type="button" id="save-note">保存意见</button><button type="button" data-action="close">取消</button></div></div>`,
-    );
-    dialog.querySelector("#save-note")!.addEventListener("click", (event) => {
-      event.preventDefault();
-      const body = (dialog.querySelector("textarea") as HTMLTextAreaElement)
-        .value;
-      if (!body.trim()) {
-        toast("请填写审阅意见", true);
-        return;
-      }
-      void action(async () => {
-        await change({
-          path: file!.path,
-          side: button.dataset.side,
-          line: Number(button.dataset.line),
-          body,
-        });
-        dialog.close();
-        toast("意见已保存到此变更快照");
+    const side = button.dataset.side as "left" | "right",
+      line = Number(button.dataset.line);
+    if (!review?.files.some((f: any) => f.path === file?.path)) return;
+    activeNoteKey = `${review.id}:${file!.path}:${side}:${line}`;
+    if (!noteDrafts.has(activeNoteKey))
+      noteDrafts.set(activeNoteKey, {
+        comparisonId: review.id,
+        path: file!.path,
+        side,
+        line,
+        body: "",
       });
+    render();
+    root
+      .querySelector<HTMLElement>(".inline-composer")
+      ?.scrollIntoView({ block: "nearest" });
+    root
+      .querySelector<HTMLTextAreaElement>('[data-field="note-body"]')
+      ?.focus({ preventScroll: true });
+    return;
+  }
+  if (a === "cancel-inline-note") {
+    noteDrafts.delete(activeNoteKey);
+    activeNoteKey = "";
+    render();
+    return;
+  }
+  if (a === "save-inline-note") {
+    const key = activeNoteKey,
+      draft = noteDrafts.get(key);
+    if (!draft?.body.trim()) {
+      toast("请填写审阅意见", true);
+      return;
+    }
+    if (draft.comparisonId !== review?.id || draft.path !== file?.path) return;
+    const area = root.querySelector<HTMLTextAreaElement>(
+      '[data-field="note-body"]',
+    );
+    if (area) area.disabled = true;
+    await action(async () => {
+      await change({
+        path: draft.path,
+        side: draft.side,
+        line: draft.line,
+        body: draft.body,
+      });
+      noteDrafts.delete(key);
+      if (activeNoteKey === key) activeNoteKey = "";
+      toast("意见已保存");
     });
+    render();
     return;
   }
   await action(async () => {
@@ -1201,25 +1314,40 @@ async function click(event: MouseEvent) {
       compactMenu("file");
       root.querySelector<HTMLElement>(`[data-action="${a}"]`)?.focus();
     }
-    if (a === "context-all") {
-      const prefix = fileKey(file!.path) + ":";
-      if ([...expandedContexts].some((k) => k.startsWith(prefix))) {
-        for (const key of expandedContexts)
-          if (key.startsWith(prefix)) expandedContexts.delete(key);
-      } else {
-        const sections = await loadContext();
-        for (const section of sections || [])
-          if ("gap" in section) expandedContexts.add(gapKey(section.gap.id));
+    if (a === "context-region") {
+      const top = button.getBoundingClientRect().top;
+      const sections = await loadContext();
+      let gap = sections?.find(
+        (section) => "gap" in section && section.gap.id === button.dataset.gap,
+      );
+      if (!gap && button.dataset.hunk && sections) {
+        const index = sections.findIndex(
+          (section) =>
+            "hunk" in section &&
+            `${section.hunk.oldStart}:${section.hunk.newStart}` ===
+              button.dataset.hunk,
+        );
+        gap =
+          sections[index - 1] && "gap" in sections[index - 1]
+            ? sections[index - 1]
+            : sections[index + 1];
       }
-      page = 0;
+      if (gap && "gap" in gap) {
+        const key = gapKey(gap.gap.id);
+        expandedContexts.has(key)
+          ? expandedContexts.delete(key)
+          : expandedContexts.add(key);
+      }
       render();
-    }
-    if (a === "toggle-context") {
-      const key = gapKey(button.dataset.gap!);
-      expandedContexts.has(key)
-        ? expandedContexts.delete(key)
-        : expandedContexts.add(key);
-      render();
+      if (gap && "gap" in gap) {
+        const id = gap.gap.id;
+        const region = [
+          ...root.querySelectorAll<HTMLElement>(".context-region"),
+        ].find((el) => el.dataset.gap === id);
+        const scroll = root.querySelector<HTMLElement>(".diff-scroll");
+        if (region && scroll)
+          scroll.scrollTop += region.getBoundingClientRect().top - top;
+      }
     }
     if (a === "viewed")
       await change({

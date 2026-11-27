@@ -104,3 +104,20 @@ test("patch-only snapshots expose no invented context", () => {
   const model = buildHunks(f);
   assert.ok(contextSections(f, model.hunks).every((s) => "hunk" in s));
 });
+
+test("patch anchors expose inline folded ranges before any full text is read", () => {
+  const f = {
+    ...file("", ""),
+    before: undefined,
+    after: undefined,
+    patch: "@@ -88 +88 @@\n-old\n+new\n@@ -156 +156 @@\n-old2\n+new2",
+  };
+  const sections = contextSections(f, buildHunks(f).hunks);
+  const gaps = sections.flatMap((s) => ("gap" in s ? [s.gap] : []));
+  assert.deepEqual(
+    gaps.map((g) => g.count),
+    [87, 67],
+  );
+  assert.ok(gaps.every((g) => g.lines === undefined));
+  assert.throws(() => contextLines(gaps[0]), /FULL_CONTEXT_UNAVAILABLE/);
+});
