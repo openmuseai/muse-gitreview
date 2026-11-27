@@ -247,7 +247,7 @@ export class RepositoryProvider {
         throw Error("GIT_REF_INVALID");
       const pinned = ref || (await this.ref(repo, "HEAD"));
       const tree = await this.github(repo, `git/trees/${pinned}?recursive=1`);
-      const files = tree.tree.filter(
+      const files: { path: string }[] = tree.tree.filter(
         (entry: any) => entry.type === "blob" && entry.mode !== "120000",
       );
       return {
@@ -256,7 +256,7 @@ export class RepositoryProvider {
         truncated: !!tree.truncated || files.length > 5000,
         files: files
           .slice(0, 5000)
-          .map((entry: any) => ({ path: entry.path, status: "unchanged" })),
+          .map((entry) => ({ path: entry.path, status: "unchanged" })),
       };
     }
     const pinned = await this.ref(repo, ref || "HEAD");
