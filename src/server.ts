@@ -102,6 +102,19 @@ export function buildServer(
     );
   register("review_sources", z.object({}).strict(), () => provider.list());
   register(
+    "repository_tree",
+    z
+      .object({
+        repositoryId: z.string().min(1).max(100),
+        ref: z
+          .string()
+          .regex(/^[a-f0-9]{40}(?:[a-f0-9]{24})?$/)
+          .optional(),
+      })
+      .strict(),
+    (a) => provider.tree(a.repositoryId, a.ref),
+  );
+  register(
     "repository_history",
     z.object({ repositoryId: z.string(), path: filePath.optional() }).strict(),
     (a) => provider.history(a.repositoryId, a.path),

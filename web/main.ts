@@ -35,6 +35,166 @@ let hostResources: any[] = [],
   afterVersion = "",
   current: any = null;
 const collapsedDirectories = new Set<string>();
+let sidebarVisible = window.innerWidth >= 768,
+  fileFilter = "",
+  treeMode = false;
+let treeFiles: any[] = [],
+  treeRef = "",
+  treeRepository = "",
+  treeTruncated = false;
+let notesVisible = false;
+const sourceLabels: Record<string, string> = {
+  workspace: "工作区 · 未提交",
+  staged: "暂存区",
+  branch: "分支比较",
+  commit: "提交比较",
+  mr: "MR",
+};
+let directorySources: any[] = [],
+  directoryAvailable = false,
+  directoryEpoch = 0;
+let sourceDraftBackup: {
+  repositoryId: string;
+  kind: string;
+  baseRef: string;
+  headRef: string;
+  mrNumber: string;
+} | null = null;
+function cancelSourceDraft() {
+  if (!sourceDraftBackup) return;
+  ({ repositoryId, kind, baseRef, headRef, mrNumber } = sourceDraftBackup);
+  sourceDraftBackup = null;
+}
+async function browseDirectories(
+  source?: any,
+  nodeRef = "root",
+  breadcrumbs: any[] = [],
+  cursor?: string,
+  previous: any[] = [],
+) {
+  const epoch = ++directoryEpoch;
+  modal(
+    `<h2>选择远程 Git 仓库</h2><p>正在读取首页已授权目录…</p><button data-action="close">取消</button>`,
+  );
+  if (!directoryAvailable) {
+    dialog.querySelector("p")!.textContent =
+      "当前应用尚未获得目录访问权限。请使用已授权仓库，或由工作区管理员授权。";
+    return;
+  }
+  if (!source) {
+    try {
+      directorySources = (await call("host_directory_sources")).sources;
+      if (epoch !== directoryEpoch) return;
+      modal(
+        `<h2>选择设备与目录</h2><p>复用首页已授权来源。离线设备不会扩大或恢复授权。</p>${directorySources.map((s, i) => `<button class="history-item" data-directory-source="${i}" ${!s.available ? "disabled" : ""}>${e(s.device)} / ${e(s.name)}<span>${s.local ? "服务设备" : "远程"} · ${s.available ? "在线" : "离线"}</span></button>`).join("") || "<p>尚未向此插件授权目录来源。</p>"}<button data-action="close">取消</button>`,
+      );
+      dialog
+        .querySelectorAll<HTMLElement>("[data-directory-source]")
+        .forEach(
+          (b) =>
+            (b.onclick = () =>
+              void browseDirectories(
+                directorySources[Number(b.dataset.directorySource)],
+              )),
+        );
+    } catch (error) {
+      if (epoch === directoryEpoch)
+        directoryError(error, () => void browseDirectories());
+    }
+    return;
+  }
+  try {
+    const page = await call("host_directory_list", {
+      sourceKey: source.sourceKey,
+      nodeRef,
+      ...(cursor ? { cursor } : {}),
+    });
+    const binding = await call("host_directory_repository", {
+      sourceKey: source.sourceKey,
+      nodeRef,
+    });
+    if (epoch !== directoryEpoch) return;
+    const entries = [...previous, ...page.directories];
+    const granted = sources.find((r) => r.id === binding.repositoryId);
+    modal(
+      `<div class="row"><h2>选择 Git 仓库</h2><button data-action="close">取消</button></div><p>${e(source.device)} / ${e(source.name)} ${breadcrumbs.map((b) => " / " + e(b.name)).join("")}</p><button id="directory-up" ${!breadcrumbs.length ? "disabled" : ""}>返回上一级</button><div>${entries.map((d, i) => `<button class="history-item" data-directory-index="${i}">${e(d.name)} <span>文件夹 ›</span></button>`).join("") || '<p class="muted">此目录下没有子目录。</p>'}</div>${page.nextCursor ? '<button id="directory-more">加载更多目录</button>' : ""}<p>${granted ? "已关联授权仓库：" + e(granted.title) + "。确认时验证 Git 并读取比较。" : "此目录尚未关联已授权 Git 仓库。可继续浏览，不能仅凭目录可见扩大仓库权限。"}</p><button class="primary" data-action="select-repository" data-id="${e(granted?.id || "")}" ${!granted ? "disabled" : ""}>使用此仓库</button>`,
+    );
+    dialog.querySelectorAll<HTMLElement>("[data-directory-index]").forEach(
+      (b) =>
+        (b.onclick = () => {
+          const d = entries[Number(b.dataset.directoryIndex)];
+          void browseDirectories(source, d.nodeRef, [
+            ...breadcrumbs,
+            { nodeRef, name: d.name },
+          ]);
+        }),
+    );
+    dialog.querySelector<HTMLElement>("#directory-up")!.onclick = () => {
+      const parent = breadcrumbs.at(-1);
+      if (parent)
+        void browseDirectories(
+          source,
+          parent.nodeRef,
+          breadcrumbs.slice(0, -1),
+        );
+    };
+    const more = dialog.querySelector<HTMLElement>("#directory-more");
+    if (more)
+      more.onclick = () =>
+        void browseDirectories(
+          source,
+          nodeRef,
+          breadcrumbs,
+          page.nextCursor,
+          entries,
+        );
+  } catch (error) {
+    if (epoch === directoryEpoch)
+      directoryError(
+        error,
+        () => void browseDirectories(source, nodeRef, breadcrumbs),
+      );
+  }
+}
+function directoryError(error: unknown, retry: () => void) {
+  modal(
+    `<h2>无法读取目录</h2><p>设备离线、权限失效或目录已不可用。当前审阅保持不变。</p><p class="muted">${e(error instanceof Error ? error.message : "DIRECTORY_REQUEST_FAILED")}</p><button id="directory-retry">重试</button><button data-action="close">返回审阅</button>`,
+  );
+  dialog.querySelector<HTMLElement>("#directory-retry")!.onclick = retry;
+}
+function compactMenu(type: "repository" | "file") {
+  const old = root.querySelector(".popup-menu");
+  const same = old?.getAttribute("data-menu") === type;
+  old?.remove();
+  if (same) return;
+  const menu = document.createElement("div");
+  menu.className = "popup-menu " + type + "-menu";
+  menu.dataset.menu = type;
+  menu.setAttribute("role", "menu");
+  menu.innerHTML =
+    type === "repository"
+      ? `<small>已授权仓库</small>${sources.map((r) => `<button role="menuitem" data-action="select-repository" data-id="${e(r.id)}">${r.id === repositoryId ? "✓ " : ""}${e(r.title)}</button>`).join("")}<hr><button role="menuitem" data-action="source">比较来源与分支…</button><button role="menuitem" data-action="history" ${!repositoryId ? "disabled" : ""}>提交历史…</button><button role="menuitem" data-action="sessions">最近审阅…</button><button role="menuitem" data-action="remote-repository">浏览远程目录…</button><hr><button role="menuitem" data-action="versions-mode">Host 文件版本…</button>`
+      : `<small>当前文件视图</small>${[
+          ["unified", "统一 Diff"],
+          ["split", "并排 Diff"],
+          ["before", "原版本"],
+          ["after", "新版本"],
+        ]
+          .map(
+            ([id, label]) =>
+              `<button role="menuitemradio" aria-checked="${view === id}" data-action="view" data-view="${id}">${view === id ? "✓ " : ""}${label}</button>`,
+          )
+          .join(
+            "",
+          )}<hr><button role="menuitem" data-action="viewed" ${!review?.files.some((f: any) => f.path === file?.path) ? "disabled" : ""}>${review?.viewed.includes(file?.path) ? "取消已阅" : "标记已阅"}</button><button role="menuitem" data-action="native-viewer">原生 Diff / 代码浏览…</button><button role="menuitem" data-action="notes">意见与审阅结论…</button><button role="menuitem" data-action="export">审阅回执…</button>`;
+  root.append(menu);
+  menu.querySelector<HTMLElement>("button")?.focus();
+}
+function restoreSidebarState() {
+  const side = root.querySelector(".sidebar") as HTMLElement | null;
+  const content = root.querySelector(".content") as HTMLElement | null;
+  return { side: side?.scrollTop || 0, content: content?.scrollTop || 0 };
+}
 let desktopPresentation = "",
   desktopInput: Record<string, any> = {},
   desktopReady = false,
@@ -170,7 +330,11 @@ function sourceForm() {
 }
 function fileList() {
   const seen = new Set<string>();
-  return `<ul class="files git-tree">${[...(review?.files || [])]
+  const list = treeMode ? treeFiles : review?.files || [];
+  return `<ul class="files git-tree">${[...list]
+    .filter((f: any) =>
+      f.path.toLocaleLowerCase().includes(fileFilter.toLocaleLowerCase()),
+    )
     .sort((a, b) => a.path.localeCompare(b.path))
     .map((f: any) => {
       const parts = f.path.split("/");
@@ -191,25 +355,23 @@ function fileList() {
     .join("")}</ul>`;
 }
 function render() {
-  root.innerHTML = `<header class="top"><div class="brand"><span class="brand-mark" aria-hidden="true">↔</span><div><h1>Repository Review</h1><small>版本、变更与审阅 · OpenMuse</small></div></div><div class="top-actions"><button class="${mode === "diff" ? "active" : ""}" data-action="diff-mode">变更</button><button class="${mode === "versions" ? "active" : ""}" data-action="versions-mode">文件版本</button><button class="quiet" data-action="source">来源</button></div></header><div class="workspace"><aside class="sidebar"><span class="label">比较来源</span>${sourceForm()}<div class="section-heading"><h3>变更文件</h3><small>${review?.fileCount || 0}</small></div>${fileList()}<div class="section-heading"><h3>最近审阅</h3></div>${sessions
-    .slice(0, 8)
-    .map(
-      (r) =>
-        `<button class="history-item" data-action="session" data-id="${r.id}">${e(r.title)}<span>${e(decisionNames[r.decision])} · ${r.viewed.length}/${r.fileCount} 文件</span></button>`,
-    )
-    .join(
-      "",
-    )}<p class="flow-context">固定快照保留源引用与摘要。审阅记录可被 CI、DSH 和其他调用方使用。</p></aside><section class="content" aria-label="审阅内容">${mode === "versions" ? versionView() : diffView()}</section></div>`;
+  const saved = restoreSidebarState();
+  root.classList.toggle("sidebar-hidden", !sidebarVisible);
+  root.innerHTML = `<header class="compact-top"><button class="icon-button" data-action="toggle-sidebar" aria-label="${sidebarVisible ? "收起" : "展开"}文件树" aria-expanded="${sidebarVisible}">☰</button><button class="repository-trigger" data-action="repository-menu" aria-haspopup="menu">${e(selectedRepo()?.title || "选择仓库")} <span aria-hidden="true">⌄</span></button><button class="source-trigger" data-action="source">${e(sourceLabels[kind] || kind)}${review ? " · " + e((review.source.headSha || review.digest).slice(0, 7)) : ""}</button><span class="top-spacer"></span><button class="icon-button" data-action="compare" aria-label="刷新比较" ${!repositoryId ? "disabled" : ""}>↻</button></header><div class="workspace"><button class="sidebar-scrim" data-action="toggle-sidebar" aria-label="收起文件树"></button><aside class="sidebar"><div class="tree-tabs"><button class="${!treeMode ? "active" : ""}" data-action="changes-tree">变更 <small>${review?.fileCount ?? "—"}</small></button><button class="${treeMode ? "active" : ""}" data-action="repository-tree" ${!repositoryId ? "disabled" : ""}>文件树</button></div><input class="filter" data-field="filter" aria-label="筛选文件" placeholder="筛选文件…" value="${e(fileFilter)}">${fileList()}${treeMode ? `<p class="tree-context">提交 ${e(treeRef.slice(0, 7))}${treeTruncated ? " · 结果已截断" : ""}</p>` : ""}<footer class="sidebar-progress">${review ? `${review.viewed.length} / ${review.fileCount} 个文件已阅` : "选择比较来源后开始审阅"}</footer></aside><section class="content" aria-label="审阅内容">${mode === "versions" ? versionView() : diffView()}</section></div>`;
+  const side = root.querySelector(".sidebar") as HTMLElement;
+  const content = root.querySelector(".content") as HTMLElement;
+  side.scrollTop = saved.side;
+  content.scrollTop = saved.content;
 }
 function diffView() {
   if (!review)
-    return `<div class="empty"><span class="label">YOUR CHANGESET, IN FOCUS</span><h2>看清每一处变更。</h2><p>选择已授权仓库的工作区、分支、提交或 MR。代码与文档在同一工作台查看；文件历史由 OpenMuse 管理。</p><button class="primary" data-action="source">选择来源并开始</button></div>`;
-  return `<div class="comparison-head"><div><h2>${e(review.title)}</h2><p><span class="status-pill">${e(decisionNames[review.decision])}</span> <small>${review.fileCount} 个文件 · 已阅 ${review.viewed.length} · ${review.noteCount} 条意见</small></p></div><div class="digest">${e(review.source.kind)} · ${e(review.digest.slice(0, 12))}<br>${e((review.source.headSha || review.source.headRef || "").slice(0, 12))}</div></div>${review.incomplete ? '<div class="notice">来源存在缺失或超出读取预算的文件。本快照不能作为完整审阅通过。</div>' : ""}<div class="toolbar"><div class="segment" role="group" aria-label="查看模式"><button class="${view === "unified" ? "active" : ""}" data-action="view" data-view="unified">统一 Diff</button><button class="${view === "split" ? "active" : ""}" data-action="view" data-view="split">并排 Diff</button><button class="${view === "before" ? "active" : ""}" data-action="view" data-view="before">原版本</button><button class="${view === "after" ? "active" : ""}" data-action="view" data-view="after">新版本</button></div><button data-action="native-viewer">原生 Diff / 代码浏览</button><button class="quiet" data-action="export">审阅回执</button><select class="mobile-files" data-field="file" aria-label="变更文件">${review.files.map((f: any) => option(f.path, `${statusNames[f.status] || "M"}  ${f.path}${review.viewed.includes(f.path) ? "  已" : ""}`, file?.path || "")).join("")}</select></div>${file ? fileView() : `<div class="empty"><h2>没有变更</h2><p>所选来源与基准一致。可以选择其他分支、提交或文件版本。</p></div>`}${reviewPanel()}`;
+    return `<div class="empty"><h2>选择仓库，开始审阅。</h2><p>选择已授权仓库与比较来源。代码和文档使用同一个阅读工作台。</p><button class="primary" data-action="source">选择比较来源</button></div>`;
+  return `${review.incomplete ? '<div class="notice">来源不完整，不能作为完整审阅通过。</div>' : ""}${file ? fileView() : '<div class="empty"><h2>没有变更</h2><p>当前比较与基准一致，可切换来源或浏览固定提交的文件树。</p></div>'}${notesVisible ? reviewPanel() : ""}`;
 }
 function fileView() {
   const f = file!,
     model = buildHunks(f);
-  return `<div class="file-head"><div><h3>${e(f.path)}</h3><div class="stats"><span class="added-text">+${model.additions}</span><span class="removed-text">−${model.deletions}</span>${f.previousPath ? `<small>原路径 ${e(f.previousPath)}</small>` : ""}</div></div><button data-action="viewed" class="${review.viewed.includes(f.path) ? "active" : ""}">${review.viewed.includes(f.path) ? "已阅" : "标记已阅"}</button></div>${model.warning ? `<div class="notice">${e(model.warning)}</div>` : ""}${f.binary ? binaryView(f) : view === "before" || view === "after" ? fullView(f) : diffTable(f)}`;
+  return `<div class="file-head"><h3 title="${e(f.path)}">${e(f.path)}</h3><div class="stats"><span class="added-text">+${model.additions}</span><span class="removed-text">−${model.deletions}</span>${f.previousPath ? `<small>原路径 ${e(f.previousPath)}</small>` : ""}</div><button data-action="viewed" ${!review.files.some((f: any) => f.path === file?.path) ? "disabled" : ""} class="${review.viewed.includes(f.path) ? "active" : ""}">${review.viewed.includes(f.path) ? "已阅" : "标记已阅"}</button><button class="icon-button" data-action="file-menu" aria-label="当前文件操作" aria-haspopup="menu">⋯</button></div>${model.warning ? `<div class="notice">${e(model.warning)}</div>` : ""}${f.binary ? binaryView(f) : view === "before" || view === "after" ? fullView(f) : diffTable(f)}`;
 }
 function binaryView(f: ChangeFile) {
   return `<div class="binary">${(["before", "after"] as const)
@@ -380,6 +542,17 @@ async function loadReview(id: string, path?: string) {
   const nextSessions = (await call("review_list")).comparisons;
   if (sequence !== reviewLoadSequence) return;
   review = nextReview;
+  if (
+    ["workspace", "staged", "branch", "commit", "mr"].includes(
+      review.source.kind,
+    )
+  ) {
+    kind = review.source.kind;
+    baseRef = review.source.baseRef || baseRef;
+    headRef = review.source.headRef || headRef;
+    if (review.source.number) mrNumber = String(review.source.number);
+  }
+  if (nextReview.source.repository) repositoryId = nextReview.source.repository;
   file = nextFile;
   sessions = nextSessions;
   page = 0;
@@ -432,6 +605,13 @@ function modal(html: string) {
   dialog.showModal();
   dialog.querySelector<HTMLElement>("input,textarea,button")?.focus();
 }
+root.addEventListener("input", (event) => {
+  const el = event.target as HTMLInputElement;
+  if (el.dataset.field !== "filter") return;
+  fileFilter = el.value;
+  const tree = root.querySelector(".git-tree");
+  if (tree) tree.outerHTML = fileList();
+});
 root.addEventListener("change", (event) => {
   const el = event.target as HTMLInputElement;
   const field = el.dataset.field;
@@ -493,13 +673,109 @@ async function click(event: MouseEvent) {
   );
   if (!button) return;
   const a = button.dataset.action;
-  if (a === "close") return dialog.close();
+  if (a === "close") {
+    directoryEpoch++;
+    cancelSourceDraft();
+    dialog.close();
+    return;
+  }
+  if (a === "repository-menu" || a === "file-menu") {
+    compactMenu(a === "repository-menu" ? "repository" : "file");
+    return;
+  }
+  root.querySelector(".popup-menu")?.remove();
+  if (a === "toggle-sidebar") {
+    sidebarVisible = !sidebarVisible;
+    render();
+    return;
+  }
+  if (a === "notes") {
+    notesVisible = !notesVisible;
+    render();
+    root.querySelector(".review-panel")?.scrollIntoView();
+    return;
+  }
+  if (a === "changes-tree") {
+    treeMode = false;
+    render();
+    return;
+  }
+  if (a === "sessions") {
+    modal(
+      `<h2>最近审阅</h2>${sessions.map((r) => `<button class="history-item" data-action="session" data-id="${e(r.id)}">${e(r.title)}<span>${e(decisionNames[r.decision])} · ${r.viewed.length}/${r.fileCount}</span></button>`).join("")}<button data-action="close">关闭</button>`,
+    );
+    return;
+  }
+  if (a === "remote-repository") {
+    void browseDirectories();
+    return;
+  }
+  if (a === "select-repository") {
+    await action(async () => {
+      const target = button.dataset.id!;
+      const repo = sources.find((r) => r.id === target);
+      if (!repo) throw Error("REPOSITORY_NOT_GRANTED");
+      const nextKind = repo.sources.includes(kind) ? kind : "workspace";
+      const result = await call("repository_compare", {
+        repositoryId: target,
+        kind: nextKind,
+        ...(nextKind === "branch"
+          ? { baseRef, headRef }
+          : nextKind === "commit"
+            ? { headRef }
+            : nextKind === "mr"
+              ? { number: Number(mrNumber) }
+              : {}),
+      });
+      await loadReview(result.id);
+      repositoryId = target;
+      kind = nextKind;
+      treeMode = false;
+      treeFiles = [];
+      collapsedDirectories.clear();
+      fileFilter = "";
+      mode = "diff";
+      directoryEpoch++;
+      dialog.close();
+      render();
+    });
+    return;
+  }
+  if (a === "repository-tree") {
+    await action(async () => {
+      if (!review || review.source.repository !== repositoryId) {
+        const compared = await call("repository_compare", {
+          repositoryId,
+          kind: "workspace",
+        });
+        await loadReview(compared.id);
+      }
+      const ref =
+        review?.source.repository === repositoryId
+          ? review.source.headSha
+          : undefined;
+      const result = await call("repository_tree", {
+        repositoryId,
+        ...(ref ? { ref } : {}),
+      });
+      treeFiles = result.files;
+      treeRef = result.ref;
+      treeRepository = repositoryId;
+      treeTruncated = result.truncated;
+      treeMode = true;
+      render();
+    });
+    return;
+  }
+
   if (a === "source") {
+    sourceDraftBackup = { repositoryId, kind, baseRef, headRef, mrNumber };
     modal(
       `<div class="sources-dialog"><div class="row"><h2>选择比较来源</h2><button class="quiet" data-action="close">关闭</button></div><div class="source-form">${sourceForm()}</div></div>`,
     );
     return;
   }
+  if (busy) return;
   if (a === "view") {
     const next = button.dataset.view!;
     if (
@@ -591,24 +867,64 @@ async function click(event: MouseEvent) {
       render();
     }
     if (a === "compare") {
+      const previous = sourceDraftBackup;
+      sourceDraftBackup = null;
       dialog.close();
-      const result = await call("repository_compare", {
-        repositoryId,
-        kind,
-        ...(kind === "branch"
-          ? { baseRef, headRef }
-          : kind === "commit"
-            ? { headRef }
-            : kind === "mr"
-              ? { number: Number(mrNumber) }
-              : {}),
-      });
-      mode = "diff";
-      await loadReview(result.id);
+      try {
+        const result = await call("repository_compare", {
+          repositoryId,
+          kind,
+          ...(kind === "branch"
+            ? { baseRef, headRef }
+            : kind === "commit"
+              ? { headRef }
+              : kind === "mr"
+                ? { number: Number(mrNumber) }
+                : {}),
+        });
+        mode = "diff";
+        treeMode = false;
+        treeFiles = [];
+        await loadReview(result.id);
+      } catch (error) {
+        if (previous)
+          ({ repositoryId, kind, baseRef, headRef, mrNumber } = previous);
+        render();
+        throw error;
+      }
     }
     if (a === "session") {
+      dialog.close();
+      treeMode = false;
       mode = "diff";
       await loadReview(button.dataset.id!);
+    }
+    if (
+      a === "file" &&
+      treeMode &&
+      !review?.files.some((f: any) => f.path === button.dataset.path)
+    ) {
+      if (treeRepository !== repositoryId)
+        throw Error("REPOSITORY_NOT_GRANTED");
+      const saved = await call("repository_read", {
+        repositoryId,
+        ref: treeRef,
+        path: button.dataset.path,
+      });
+      file = {
+        path: button.dataset.path!,
+        status: "unchanged",
+        before: saved.text,
+        after: saved.text,
+        binary: saved.binary,
+        beforeInfo: saved,
+        afterInfo: saved,
+      } as ChangeFile;
+      view = "after";
+      page = 0;
+      if (window.innerWidth < 768) sidebarVisible = false;
+      render();
+      return;
     }
     if (a === "file") {
       file = (
@@ -618,6 +934,7 @@ async function click(event: MouseEvent) {
         })
       ).file;
       page = 0;
+      if (window.innerWidth < 768) sidebarVisible = false;
       render();
     }
     if (a === "viewed")
@@ -765,6 +1082,13 @@ async function boot() {
   } catch {
     /* Optional negotiated Host capability. */
   }
+  try {
+    const directory = await call("host_directory_sources");
+    directoryAvailable = directory.contract === "openmuse.host-directories/1";
+    directorySources = directory.sources || [];
+  } catch {
+    directoryAvailable = false;
+  }
   desktopReady = true;
   if (sessions[0]) await loadReview(sessions[0].id);
   else render();
@@ -772,4 +1096,41 @@ async function boot() {
 }
 void boot().catch((error) => {
   root.innerHTML = `<div class="error-box"><h2>尚未连接审阅服务</h2><p>${e(error.message)}</p><p class="muted">请从 OpenMuse 的应用入口打开已安装插件，并确认 Desktop 在线。</p></div>`;
+});
+
+document.addEventListener("pointerdown", (event) => {
+  if (
+    !(event.target as HTMLElement).closest(
+      '.popup-menu,[data-action="repository-menu"],[data-action="file-menu"]',
+    )
+  )
+    root.querySelector(".popup-menu")?.remove();
+});
+document.addEventListener("keydown", (event) => {
+  const menu = root.querySelector(".popup-menu");
+  if (!menu) return;
+  if (event.key === "Escape") {
+    const type = menu.getAttribute("data-menu");
+    menu.remove();
+    root
+      .querySelector<HTMLElement>(
+        `[data-action="${type === "file" ? "file-menu" : "repository-menu"}"]`,
+      )
+      ?.focus();
+  }
+  if (["ArrowDown", "ArrowUp"].includes(event.key)) {
+    const items = [
+      ...menu.querySelectorAll<HTMLButtonElement>("button:not(:disabled)"),
+    ];
+    const i = items.indexOf(document.activeElement as HTMLButtonElement);
+    items[
+      (i + (event.key === "ArrowDown" ? 1 : -1) + items.length) % items.length
+    ]?.focus();
+    event.preventDefault();
+  }
+});
+
+dialog.addEventListener("cancel", () => {
+  directoryEpoch++;
+  cancelSourceDraft();
 });

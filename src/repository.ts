@@ -95,6 +95,35 @@ export class RepositoryProvider {
       ),
     };
   }
+  async tree(repositoryId: string, ref?: string) {
+    const repo = this.repo(repositoryId);
+    const pinned = await this.ref(repo, ref || "HEAD");
+    const output: string = await this.git(repo, [
+      "ls-tree",
+      "-rz",
+      "--full-tree",
+      pinned,
+    ]);
+    const paths = output
+      .split("\0")
+      .filter(Boolean)
+      .flatMap((entry) => {
+        const tab = entry.indexOf("\t");
+        const [mode, type] = entry.slice(0, tab).split(" ");
+        // Git links and symlinks are not ordinary readable snapshot files.
+        return tab >= 0 && type === "blob" && mode !== "120000"
+          ? [entry.slice(tab + 1)]
+          : [];
+      });
+    return {
+      repositoryId,
+      ref: pinned,
+      truncated: paths.length > 5000,
+      files: paths
+        .slice(0, 5000)
+        .map((path) => ({ path, status: "unchanged" })),
+    };
+  }
   async history(repoId: string, filePath?: string) {
     const repo = this.repo(repoId);
     if (filePath) this.validatePath(filePath);
