@@ -1364,3 +1364,87 @@ dialog p {
   padding: 8px 0;
   color: var(--muted);
 }
+/* Reading controls stay compact; code and line numbers share a size. */
+.sources-dialog > .row {
+  justify-content: space-between;
+  margin-top: 0;
+}
+.file-navigation {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+.file-navigation .icon-button {
+  min-width: 32px;
+  padding: 0;
+  font-size: 23px;
+}
+.file-head button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.diff-table {
+  font-size: var(--code-font-size, 13px);
+  line-height: var(--code-line-height, 25px);
+}
+.diff-table .anchor,
+.diff-table .gutter {
+  font-size: inherit;
+}
+.font-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 10px;
+}
+.font-controls span {
+  flex: 1;
+  font-size: 12px;
+  color: var(--muted);
+}
+.popup-menu .font-controls button {
+  width: auto;
+  min-width: 36px;
+  padding: 6px;
+  text-align: center;
+}
+.context-gap td,
+.context-loader {
+  padding: 0;
+  background: #f3f6f7;
+}
+.context-gap button,
+.context-loader button {
+  width: 100%;
+  min-height: 36px;
+  border: 0;
+  border-radius: 0;
+  color: #516c78;
+  background: transparent;
+  font: 12px/1.4 system-ui;
+  text-align: center;
+}
+.context-gap button:hover,
+.context-loader button:hover {
+  background: #e9f1ee;
+}
+@media (max-width: 767px) {
+  .file-navigation .icon-button {
+    min-width: 44px;
+  }
+  .file-head .stats {
+    display: none;
+  }
+  .context-gap button,
+  .context-loader button {
+    min-height: 44px;
+  }
+}
+:root[data-host-theme="dark"] .context-gap td,
+:root[data-host-theme="dark"] .context-loader {
+  background: #232e34;
+}
+:root[data-host-theme="dark"] .context-gap button,
+:root[data-host-theme="dark"] .context-loader button {
+  color: #a8c3d0;
+}

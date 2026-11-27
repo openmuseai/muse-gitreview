@@ -1,5 +1,10 @@
 import { App } from "@modelcontextprotocol/ext-apps";
 import { comparisonLabel } from "./comparison-label.ts";
+import {
+  contextSections,
+  contextLines,
+  type ContextGap,
+} from "../src/diff-context.ts";
 import { buildHunks, pairedRows, type DiffLine } from "../src/diff-model.ts";
 import type { ChangeFile } from "../src/contract.ts";
 import { escape as e, tokenize, lineHtml } from "./highlight.ts";
@@ -50,6 +55,115 @@ let sourceChoices: any = null,
 let sourceChoicesEpoch = 0,
   sourcePanelRepository = "";
 const comparisonNames = new Map<string, { baseRef: string; headRef: string }>();
+const contextCache = new Map<string, ChangeFile>();
+const expandedContexts = new Set<string>();
+let codeFontSize = 13;
+try {
+  const saved = Number(localStorage.getItem("review.code-font-size"));
+  if (Number.isInteger(saved) && saved >= 11 && saved <= 24)
+    codeFontSize = saved;
+} catch {
+  /* Host storage may be unavailable. */
+}
+const fileKey = (path: string) => `${review?.id || "tree:" + treeRef}:${path}`;
+const gapKey = (id: string) => `${fileKey(file!.path)}:${id}`;
+const displayModel = (f: ChangeFile) =>
+  buildHunks(f.patch ? { ...f, before: undefined, after: undefined } : f);
+function orderedFiles() {
+  return [...(treeMode ? treeFiles : review?.files || [])]
+    .filter((f: any) =>
+      f.path.toLocaleLowerCase().includes(fileFilter.toLocaleLowerCase()),
+    )
+    .sort((a, b) => a.path.localeCompare(b.path));
+}
+function adjacentFile(offset: number) {
+  const files = orderedFiles(),
+    index = files.findIndex((f) => f.path === file?.path);
+  return index < 0 ? undefined : files[index + offset]?.path;
+}
+async function openFile(path: string) {
+  if (treeMode && !review?.files.some((f: any) => f.path === path)) {
+    if (treeRepository !== repositoryId) throw Error("REPOSITORY_NOT_GRANTED");
+    const saved = await call("repository_read", {
+      repositoryId,
+      ref: treeRef,
+      path,
+    });
+    file = {
+      path,
+      status: "unchanged",
+      before: saved.text,
+      after: saved.text,
+      binary: saved.binary,
+      beforeInfo: saved,
+      afterInfo: saved,
+    } as ChangeFile;
+    view = "after";
+  } else {
+    const saved = (await call("review_read", { comparisonId: review.id, path }))
+      .file;
+    file = contextCache.get(fileKey(path)) || saved;
+  }
+  page = 0;
+  if (window.innerWidth < 768) sidebarVisible = false;
+  render();
+  root.querySelector<HTMLElement>(".diff-scroll")?.scrollTo(0, 0);
+}
+async function loadContext() {
+  const selected = file!,
+    identity = fileKey(selected.path),
+    source = review?.source;
+  let loaded = contextCache.get(identity) || selected;
+  if (loaded.before === undefined || loaded.after === undefined) {
+    if (
+      !source?.repository ||
+      !["mr", "branch", "commit"].includes(source.kind) ||
+      selected.binary ||
+      selected.patchUnavailable ||
+      selected.truncated
+    )
+      throw Error("FULL_CONTEXT_UNAVAILABLE");
+    const read = async (ref: string, path: string) => {
+      if (!/^[a-f0-9]{40}(?:[a-f0-9]{24})?$/.test(ref || ""))
+        throw Error("FULL_CONTEXT_UNAVAILABLE");
+      const result = await call("repository_read", {
+        repositoryId: source.repository,
+        ref,
+        path,
+      });
+      if (
+        result.ref !== ref ||
+        result.path !== path ||
+        typeof result.text !== "string" ||
+        result.binary
+      )
+        throw Error("FULL_CONTEXT_UNAVAILABLE");
+      return result.text;
+    };
+    const [before, after] = await Promise.all([
+      selected.status === "added"
+        ? ""
+        : read(source.baseRef, selected.previousPath || selected.path),
+      selected.status === "deleted"
+        ? ""
+        : read(source.headSha || source.headRef, selected.path),
+    ]);
+    loaded = { ...selected, before, after };
+  }
+  const model = displayModel(loaded);
+  if (model.partial) throw Error("FULL_CONTEXT_UNAVAILABLE");
+  const sections = contextSections(loaded, model.hunks);
+  if (identity !== fileKey(file!.path)) return;
+  contextCache.set(identity, loaded);
+  while (contextCache.size > 8) {
+    const oldest = contextCache.keys().next().value!;
+    contextCache.delete(oldest);
+    for (const key of expandedContexts)
+      if (key.startsWith(oldest + ":")) expandedContexts.delete(key);
+  }
+  file = loaded;
+  return sections;
+}
 let directorySources: any[] = [],
   directoryAvailable = false,
   directoryEpoch = 0;
@@ -186,7 +300,7 @@ function compactMenu(type: "repository" | "file") {
           )
           .join(
             "",
-          )}<hr><button role="menuitem" data-action="viewed" ${!review?.files.some((f: any) => f.path === file?.path) ? "disabled" : ""}>${review?.viewed.includes(file?.path) ? "取消已阅" : "标记已阅"}</button><button role="menuitem" data-action="native-viewer">原生 Diff / 代码浏览…</button><button role="menuitem" data-action="notes">意见与审阅结论…</button><button role="menuitem" data-action="export">审阅回执…</button>`;
+          )}<hr><button role="menuitem" data-action="viewed" ${!review?.files.some((f: any) => f.path === file?.path) ? "disabled" : ""}>${review?.viewed.includes(file?.path) ? "取消已阅" : "标记已阅"}</button><button role="menuitem" data-action="context-all" ${file?.binary || file?.patchUnavailable || !["unified", "split"].includes(view) ? "disabled" : ""}>${[...expandedContexts].some((k) => k.startsWith(fileKey(file!.path) + ":")) ? "折叠未改动区" : "展开未改动区"}</button><div class="font-controls" role="group" aria-label="代码字体大小"><span>${codeFontSize} px</span><button data-action="font-smaller" aria-label="减小字体" ${codeFontSize <= 11 ? "disabled" : ""}>A−</button><button data-action="font-reset" aria-label="重置字体">重置</button><button data-action="font-larger" aria-label="增大字体" ${codeFontSize >= 24 ? "disabled" : ""}>A+</button></div><button role="menuitem" data-action="native-viewer">原生 Diff / 代码浏览…</button><button role="menuitem" data-action="notes">意见与审阅结论…</button><button role="menuitem" data-action="export">审阅回执…</button>`;
   root.append(menu);
   menu.querySelector<HTMLElement>("button")?.focus();
 }
@@ -287,6 +401,8 @@ async function call(
   return r.structuredContent;
 }
 const errors: Record<string, string> = {
+  FULL_CONTEXT_UNAVAILABLE: "当前来源无法读取固定版本全文，已保留原 Diff。",
+  CONTEXT_SNAPSHOT_MISMATCH: "完整文件与固定补丁不一致，无法展开未改动区。",
   REVIEW_NOT_COMPLETE: "请审阅全部文件并解决意见；来源不完整时不能完成审阅。",
   VERSION_CURRENT_CHANGED: "文件已被其他人修改，请刷新后重新比较。",
   VERSION_CLOSE_EDITOR_BEFORE_RESTORE:
@@ -450,13 +566,18 @@ function fileList() {
       }
       return (
         parents +
-        `<li><button style="padding-left:${8 + (parts.length - 1) * 12}px" class="file-button ${file?.path === f.path ? "active" : ""}" data-action="file" data-path="${e(f.path)}" title="${e(f.path)}"><span class="badge ${e(f.status)}">${statusNames[f.status] || "M"}</span><span class="file-name">${e(parts.at(-1))}</span><span aria-label="${review.viewed.includes(f.path) ? "已阅" : "未阅"}">${review.viewed.includes(f.path) ? "✓" : ""}</span></button></li>`
+        `<li><button style="padding-left:${8 + (parts.length - 1) * 12}px" class="file-button ${file?.path === f.path ? "active" : ""}" data-action="file" data-path="${e(f.path)}" title="${e(f.path)}"><span class="badge ${e(f.status)}">${statusNames[f.status] || "M"}</span><span class="file-name">${e(parts.at(-1))}</span><span aria-label="${review?.viewed.includes(f.path) ? "已阅" : "未阅"}">${review?.viewed.includes(f.path) ? "✓" : ""}</span></button></li>`
       );
     })
     .join("")}</ul>`;
 }
 function render() {
   const saved = restoreSidebarState();
+  root.style.setProperty("--code-font-size", `${codeFontSize}px`);
+  root.style.setProperty(
+    "--code-line-height",
+    `${Math.round(codeFontSize * 1.9)}px`,
+  );
   root.classList.toggle("sidebar-hidden", !sidebarVisible);
   root.innerHTML = `<header class="compact-top"><button class="icon-button" data-action="toggle-sidebar" aria-label="${sidebarVisible ? "收起" : "展开"}文件树" aria-expanded="${sidebarVisible}">☰</button><button class="repository-trigger" data-action="repository-menu" aria-haspopup="menu">${e(selectedRepo()?.title || "选择仓库")} <span aria-hidden="true">⌄</span></button><button class="source-trigger" data-action="source">${e(comparisonLabel(review ? { ...review.source, ...comparisonNames.get(review.id) } : undefined))}</button><span class="top-spacer"></span><button class="icon-button" data-action="compare" aria-label="刷新比较" ${!repositoryId ? "disabled" : ""}>↻</button></header><div class="workspace"><button class="sidebar-scrim" data-action="toggle-sidebar" aria-label="收起文件树"></button><aside class="sidebar"><div class="tree-tabs"><button class="${!treeMode ? "active" : ""}" data-action="changes-tree">变更 <small>${review?.fileCount ?? "—"}</small></button><button class="${treeMode ? "active" : ""}" data-action="repository-tree" ${!repositoryId ? "disabled" : ""}>文件树</button></div><input class="filter" data-field="filter" aria-label="筛选文件" placeholder="筛选文件…" value="${e(fileFilter)}">${fileList()}${treeMode ? `<p class="tree-context">提交 ${e(treeRef.slice(0, 7))}${treeTruncated ? " · 结果已截断" : ""}</p>` : ""}<footer class="sidebar-progress">${review ? `${review.viewed.length} / ${review.fileCount} 个文件已阅` : "选择比较来源后开始审阅"}</footer></aside><section class="content" aria-label="审阅内容">${mode === "versions" ? versionView() : diffView()}</section></div>`;
   const side = root.querySelector(".sidebar") as HTMLElement;
@@ -471,8 +592,8 @@ function diffView() {
 }
 function fileView() {
   const f = file!,
-    model = buildHunks(f);
-  return `<div class="file-head"><h3 title="${e(f.path)}">${e(f.path)}</h3><div class="stats"><span class="added-text">+${model.additions}</span><span class="removed-text">−${model.deletions}</span>${f.previousPath ? `<small>原路径 ${e(f.previousPath)}</small>` : ""}</div><button data-action="viewed" ${!review.files.some((f: any) => f.path === file?.path) ? "disabled" : ""} class="${review.viewed.includes(f.path) ? "active" : ""}">${review.viewed.includes(f.path) ? "已阅" : "标记已阅"}</button><button class="icon-button" data-action="file-menu" aria-label="当前文件操作" aria-haspopup="menu">⋯</button></div>${model.warning ? `<div class="notice">${e(model.warning)}</div>` : ""}${f.binary ? binaryView(f) : view === "before" || view === "after" ? fullView(f) : diffTable(f)}`;
+    model = displayModel(f);
+  return `<div class="file-head"><h3 title="${e(f.path)}">${e(f.path)}</h3><div class="file-navigation" role="group" aria-label="切换文件"><button class="icon-button" data-action="previous-file" aria-label="上一个文件" title="上一个文件" ${!adjacentFile(-1) ? "disabled" : ""}>‹</button><button class="icon-button" data-action="next-file" aria-label="下一个文件" title="下一个文件" ${!adjacentFile(1) ? "disabled" : ""}>›</button></div><div class="stats"><span class="added-text">+${model.additions}</span><span class="removed-text">−${model.deletions}</span>${f.previousPath ? `<small>原路径 ${e(f.previousPath)}</small>` : ""}</div><button data-action="viewed" ${!review.files.some((f: any) => f.path === file?.path) ? "disabled" : ""} class="${review?.viewed.includes(f.path) ? "active" : ""}">${review?.viewed.includes(f.path) ? "已阅" : "标记已阅"}</button><button class="icon-button" data-action="file-menu" aria-label="当前文件操作" aria-haspopup="menu">⋯</button></div>${model.warning ? `<div class="notice">${e(model.warning)}</div>` : ""}${f.binary ? binaryView(f) : view === "before" || view === "after" ? fullView(f) : diffTable(f)}`;
 }
 function binaryView(f: ChangeFile) {
   return `<div class="binary">${(["before", "after"] as const)
@@ -531,7 +652,7 @@ function pager(length: number) {
     : "";
 }
 function diffTable(f: ChangeFile) {
-  const model = buildHunks(f);
+  const model = displayModel(f);
   if (!model.hunks.length)
     return `<div class="empty"><p>${f.patchUnavailable ? "补丁不可用。" : f.status === "renamed" ? "文件仅重命名，内容一致。" : "没有文本变化。"}</p></div>`;
   const oldTokens =
@@ -543,12 +664,33 @@ function diffTable(f: ChangeFile) {
   // hunk as a bounded fallback; never renumber the source to fragment offsets.
   const rows: {
     hunk?: any;
+    gap?: ContextGap;
     line?: DiffLine;
     pair?: ReturnType<typeof pairedRows>[number];
     patchOld?: any[];
     patchNew?: any[];
   }[] = [];
-  for (const h of model.hunks) {
+  let sections: ReturnType<typeof contextSections>;
+  let contextWarning = "";
+  try {
+    sections = contextSections(f, model.hunks);
+  } catch {
+    sections = model.hunks.map((hunk) => ({ hunk }));
+    contextWarning = "完整文件与固定补丁不一致，无法展开未改动区。";
+  }
+  for (const section of sections) {
+    if ("gap" in section) {
+      rows.push({ gap: section.gap });
+      if (expandedContexts.has(gapKey(section.gap.id))) {
+        const lines = contextLines(section.gap);
+        for (const row of view === "split"
+          ? pairedRows(lines).map((pair) => ({ pair }))
+          : lines.map((line) => ({ line })))
+          rows.push(row);
+      }
+      continue;
+    }
+    const h = section.hunk;
     const patchOld = oldTokens
         ? null
         : tokenize(
@@ -581,6 +723,12 @@ function diffTable(f: ChangeFile) {
       : h.lines.map((line) => ({ line })))
       rows.push({ ...row, patchOld: oldMap as any, patchNew: newMap as any });
   }
+  function anchor(line: DiffLine, side: "left" | "right") {
+    const number = side === "left" ? line.oldLine : line.newLine;
+    if (number === undefined) return "";
+    if (line.hunk === -1) return `<span title="未改动内容">${number}</span>`;
+    return `<button class="anchor" data-action="note" data-side="${side}" data-line="${number}" aria-label="在${side === "left" ? "原" : "新"}版本第 ${number} 行添加意见">${number}</button>`;
+  }
   function cell(
     line: DiffLine | undefined,
     side: "left" | "right",
@@ -595,11 +743,15 @@ function diffTable(f: ChangeFile) {
         : (side === "left"
             ? oldTokens?.[number - 1]
             : newTokens?.[number - 1]) || patch?.get(number);
-    return `<td class="gutter ${extra} line-${line.kind}">${number === undefined ? "" : `<button class="anchor" data-action="note" data-side="${side}" data-line="${number}" aria-label="在${side === "left" ? "原" : "新"}版本第 ${number} 行添加意见">${number}</button>`}</td><td class="code line-${line.kind}"><code>${lineHtml(line, tokens)}</code></td>`;
+    return `<td class="gutter ${extra} line-${line.kind}">${anchor(line, side)}</td><td class="code line-${line.kind}"><code>${lineHtml(line, tokens)}</code></td>`;
   }
   const html = rows
     .slice(page * 500, (page + 1) * 500)
     .map((row) => {
+      if (row.gap) {
+        const expanded = expandedContexts.has(gapKey(row.gap.id));
+        return `<tr class="context-gap"><td colspan="4"><button data-action="toggle-context" data-gap="${e(row.gap.id)}" aria-expanded="${expanded}">${expanded ? "⌃ 折叠" : "⌄ 展开"} ${row.gap.lines.length} 行未改动内容</button></td></tr>`;
+      }
       if (row.hunk) {
         const h = row.hunk;
         return `<tr class="hunk"><td colspan="${view === "split" ? 4 : 4}">@@ −${h.oldStart},${h.oldLines} +${h.newStart},${h.newLines} @@</td></tr>`;
@@ -615,10 +767,10 @@ function diffTable(f: ChangeFile) {
             : side === "left"
               ? oldTokens?.[n - 1] || (row.patchOld as any)?.get(n)
               : newTokens?.[n - 1] || (row.patchNew as any)?.get(n);
-      return `<tr class="line-${l.kind}"><td class="gutter">${l.oldLine === undefined ? "" : `<button class="anchor" data-action="note" data-side="left" data-line="${l.oldLine}" aria-label="在原版本第 ${l.oldLine} 行添加意见">${l.oldLine}</button>`}</td><td class="gutter">${l.newLine === undefined ? "" : `<button class="anchor" data-action="note" data-side="right" data-line="${l.newLine}" aria-label="在新版本第 ${l.newLine} 行添加意见">${l.newLine}</button>`}</td><td class="sign">${l.kind === "add" ? "+" : l.kind === "delete" ? "−" : ""}</td><td class="code"><code>${lineHtml(l, tokens)}</code></td></tr>`;
+      return `<tr class="line-${l.kind}"><td class="gutter">${anchor(l, "left")}</td><td class="gutter">${anchor(l, "right")}</td><td class="sign">${l.kind === "add" ? "+" : l.kind === "delete" ? "−" : ""}</td><td class="code"><code>${lineHtml(l, tokens)}</code></td></tr>`;
     })
     .join("");
-  return `<div class="diff-scroll"><table class="diff-table ${view === "split" ? "split" : ""}"><colgroup>${view === "split" ? '<col style="width:52px"><col><col style="width:52px"><col>' : '<col class="gutter"><col class="gutter"><col class="sign"><col>'}</colgroup><tbody>${html}</tbody></table>${pager(rows.length)}</div>`;
+  return `<div class="diff-scroll">${contextWarning ? `<p class="notice">${contextWarning}</p>` : f.before === undefined || f.after === undefined ? '<div class="context-loader"><button data-action="context-all">展开未改动区</button></div>' : ""}<table class="diff-table ${view === "split" ? "split" : ""}"><colgroup>${view === "split" ? '<col style="width:52px"><col><col style="width:52px"><col>' : '<col class="gutter"><col class="gutter"><col class="sign"><col>'}</colgroup><tbody>${html}</tbody></table>${pager(rows.length)}</div>`;
 }
 function reviewPanel() {
   return `<div class="review-panel"><div class="review-title"><h3>审阅意见</h3><small>点击 Diff 行号添加 · ${e(review.actor)}</small></div>${review.notes.length ? review.notes.map((n: any) => `<article class="note ${n.resolved ? "resolved" : ""}"><div class="note-meta">${e(n.path)} · ${n.side === "left" ? "原" : "新"}版本 L${n.line} · ${e(n.actor)}</div><p>${e(n.body)}</p><button data-action="resolve" data-id="${n.id}" data-resolved="${!n.resolved}">${n.resolved ? "重新打开" : "解决意见"}</button></article>`).join("") : '<p class="muted">还没有意见。已阅状态与意见固定在此份变更快照中。</p>'}<div class="review-actions"><small>这里记录本地审阅结论，不会向代码平台提交批准或执行合并。</small><div class="row"><button data-action="decision" data-decision="changes_requested">需要修改</button><button class="primary" data-action="decision" data-decision="accepted">完成审阅</button></div></div></div>`;
@@ -654,7 +806,7 @@ async function loadReview(id: string, path?: string) {
     if (review.source.number) mrNumber = String(review.source.number);
   }
   if (nextReview.source.repository) repositoryId = nextReview.source.repository;
-  file = nextFile;
+  file = nextFile ? contextCache.get(fileKey(nextFile.path)) || nextFile : null;
   sessions = nextSessions;
   page = 0;
   render();
@@ -712,6 +864,15 @@ root.addEventListener("input", (event) => {
   fileFilter = el.value;
   const tree = root.querySelector(".git-tree");
   if (tree) tree.outerHTML = fileList();
+  for (const [action, offset] of [
+    ["previous-file", -1],
+    ["next-file", 1],
+  ] as const) {
+    const button = root.querySelector<HTMLButtonElement>(
+      `[data-action="${action}"]`,
+    );
+    if (button) button.disabled = !adjacentFile(offset);
+  }
 });
 root.addEventListener("change", (event) => {
   const el = event.target as HTMLInputElement;
@@ -1016,42 +1177,48 @@ async function click(event: MouseEvent) {
       mode = "diff";
       await loadReview(button.dataset.id!);
     }
-    if (
-      a === "file" &&
-      treeMode &&
-      !review?.files.some((f: any) => f.path === button.dataset.path)
-    ) {
-      if (treeRepository !== repositoryId)
-        throw Error("REPOSITORY_NOT_GRANTED");
-      const saved = await call("repository_read", {
-        repositoryId,
-        ref: treeRef,
-        path: button.dataset.path,
-      });
-      file = {
-        path: button.dataset.path!,
-        status: "unchanged",
-        before: saved.text,
-        after: saved.text,
-        binary: saved.binary,
-        beforeInfo: saved,
-        afterInfo: saved,
-      } as ChangeFile;
-      view = "after";
-      page = 0;
-      if (window.innerWidth < 768) sidebarVisible = false;
-      render();
-      return;
+    if (["file", "previous-file", "next-file"].includes(a || "")) {
+      const path =
+        a === "file"
+          ? button.dataset.path
+          : adjacentFile(a === "previous-file" ? -1 : 1);
+      if (path) await openFile(path);
     }
-    if (a === "file") {
-      file = (
-        await call("review_read", {
-          comparisonId: review.id,
-          path: button.dataset.path,
-        })
-      ).file;
+    if (["font-smaller", "font-larger", "font-reset"].includes(a || "")) {
+      codeFontSize =
+        a === "font-reset"
+          ? 13
+          : Math.max(
+              11,
+              Math.min(24, codeFontSize + (a === "font-larger" ? 1 : -1)),
+            );
+      try {
+        localStorage.setItem("review.code-font-size", String(codeFontSize));
+      } catch {
+        /* Session setting still applies. */
+      }
+      render();
+      compactMenu("file");
+      root.querySelector<HTMLElement>(`[data-action="${a}"]`)?.focus();
+    }
+    if (a === "context-all") {
+      const prefix = fileKey(file!.path) + ":";
+      if ([...expandedContexts].some((k) => k.startsWith(prefix))) {
+        for (const key of expandedContexts)
+          if (key.startsWith(prefix)) expandedContexts.delete(key);
+      } else {
+        const sections = await loadContext();
+        for (const section of sections || [])
+          if ("gap" in section) expandedContexts.add(gapKey(section.gap.id));
+      }
       page = 0;
-      if (window.innerWidth < 768) sidebarVisible = false;
+      render();
+    }
+    if (a === "toggle-context") {
+      const key = gapKey(button.dataset.gap!);
+      expandedContexts.has(key)
+        ? expandedContexts.delete(key)
+        : expandedContexts.add(key);
       render();
     }
     if (a === "viewed")
