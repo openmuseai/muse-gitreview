@@ -104,6 +104,15 @@ test("remote metadata and comparisons use the selected repository and pinned SHA
           },
         ],
       };
+    else if (url.includes("/git/trees/"))
+      result = {
+        truncated: true,
+        tree: [
+          { path: "a.txt", mode: "100644", type: "blob" },
+          { path: "link", mode: "120000", type: "blob" },
+          { path: "submodule", mode: "160000", type: "commit" },
+        ],
+      };
     else throw Error("Unexpected request");
     return new Response(JSON.stringify(result), {
       status: 200,
@@ -133,6 +142,12 @@ test("remote metadata and comparisons use the selected repository and pinned SHA
     });
     assert.equal(c.source.headSha, head);
     assert.equal(c.source.baseRef, common);
+    // This SHA is absent from the deliberately empty local checkout.
+    const tree = await p.tree("repo", head);
+    assert.equal(tree.ref, head);
+    assert.deepEqual(tree.files, [{ path: "a.txt", status: "unchanged" }]);
+    assert.equal(tree.truncated, true);
+    assert.ok(urls.some((u) => u.endsWith(`/git/trees/${head}?recursive=1`)));
     assert.ok(
       urls.every((u) =>
         u.startsWith("https://api.github.com/repos/owner/selected/"),

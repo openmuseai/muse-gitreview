@@ -242,6 +242,23 @@ export class RepositoryProvider {
   }
   async tree(repositoryId: string, ref?: string) {
     const repo = this.repo(repositoryId);
+    if (repo.github) {
+      if (ref && !/^[a-f0-9]{40}(?:[a-f0-9]{24})?$/.test(ref))
+        throw Error("GIT_REF_INVALID");
+      const pinned = ref || (await this.ref(repo, "HEAD"));
+      const tree = await this.github(repo, `git/trees/${pinned}?recursive=1`);
+      const files = tree.tree.filter(
+        (entry: any) => entry.type === "blob" && entry.mode !== "120000",
+      );
+      return {
+        repositoryId,
+        ref: pinned,
+        truncated: !!tree.truncated || files.length > 5000,
+        files: files
+          .slice(0, 5000)
+          .map((entry: any) => ({ path: entry.path, status: "unchanged" })),
+      };
+    }
     const pinned = await this.ref(repo, ref || "HEAD");
     const output: string = await this.git(repo, [
       "ls-tree",
